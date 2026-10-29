@@ -1,0 +1,190 @@
+// ==============================================================================
+// SISTEM INFORMASI RESTORAN DAN RESERVASI (PROJEK AKHIR TIM 11)
+// Framework: Next.js (App Router) + Supabase (PostgreSQL) + Prisma ORM
+// ==============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Wajib untuk koneksi migrasi Supabase
+}
+
+// ==============================================================================
+// ENUMS
+// ==============================================================================
+
+enum Role {
+  PELANGGAN
+  STAF
+  ADMIN
+}
+
+enum StatusMeja {
+  TERSEDIA
+  DIISI
+  DIBLOKIR
+}
+
+enum StatusReservasi {
+  MENUNGGU_KONFIRMASI
+  DIKONFIRMASI
+  SELESAI
+  DIBATALKAN
+}
+
+enum StatusPembayaran {
+  BELUM_BAYAR
+  LUNAS
+  DIBATALKAN
+}
+
+// ==============================================================================
+// 1. MODEL USER / PROFILE
+// ==============================================================================
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  nama          String    @db.VarChar(150)
+  email         String    @unique @db.VarChar(255)
+  passwordHash  String    @map("password_hash") @db.Text
+  role          Role      @default(PELANGGAN)
+  noHp          String?   @map("no_hp") @db.VarChar(20)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relasi
+  reservasi         Reservasi[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("users")
+}
+
+// ==============================================================================
+// 2. MODEL MEJA
+// ==============================================================================
+model Meja {
+  id          String      @id @default(uuid()) @db.Uuid
+  nomorMeja   String      @unique @map("nomor_meja") @db.VarChar(20)
+  kapasitas   Int         @db.Integer
+  status      StatusMeja  @default(TERSEDIA)
+  lokasiArea  String      @default("Indoor") @map("lokasi_area") @db.VarChar(50)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relasi
+  reservasi   Reservasi[]
+
+  @@map("meja")
+}
+
+// ==============================================================================
+// 3. MODEL KATEGORI MENU
+// ==============================================================================
+model KategoriMenu {
+  id            String    @id @default(uuid()) @db.Uuid
+  namaKategori  String    @unique @map("nama_kategori") @db.VarChar(100)
+  urutan        Int       @default(0) @db.Integer
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Relasi
+  menus         Menu[]
+
+  @@map("kategori_menu")
+}
+
+// ==============================================================================
+// 4. MODEL MENU
+// ==============================================================================
+model Menu {
+  id                  String        @id @default(uuid()) @db.Uuid
+  kategoriId          String        @map("kategori_id") @db.Uuid
+  namaMenu            String        @map("nama_menu") @db.VarChar(150)
+  harga               Decimal       @db.Decimal(12, 2)
+  fotoUrl             String?       @map("foto_url") @db.Text
+  deskripsi           String?       @db.Text
+  statusKetersediaan  Boolean       @default(true) @map("status_ketersediaan")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  // Relasi Foreign Key
+  kategori            KategoriMenu  @relation(fields: [kategoriId], references: [id], onDelete: Restrict)
+  detailReservasi     DetailReservasiMenu[]
+
+  // Indexing pencarian menu per kategori
+  @@index([kategoriId])
+  @@map("menu")
+}
+
+// ==============================================================================
+// 5. MODEL RESERVASI
+// ==============================================================================
+model Reservasi {
+  id                String            @id @default(uuid()) @db.Uuid
+  userId            String            @map("user_id") @db.Uuid
+  mejaId            String            @map("meja_id") @db.Uuid
+  tanggal           DateTime          @db.Date
+  jamMulai          String            @map("jam_mulai") @db.VarChar(10) // Format: "12:00"
+  jamSelesai        String            @map("jam_selesai") @db.VarChar(10) // Format: "13:30"
+  jumlahTamu        Int               @map("jumlah_tamu") @db.Integer
+  statusReservasi   StatusReservasi   @default(MENUNGGU_KONFIRMASI) @map("status_reservasi")
+  statusPembayaran  StatusPembayaran  @default(BELUM_BAYAR) @map("status_pembayaran")
+  totalBayar        Decimal           @default(0) @map("total_bayar") @db.Decimal(12, 2)
+  catatan           String?           @db.Text
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  // Relasi Foreign Keys
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meja              Meja              @relation(fields: [mejaId], references: [id], onDelete: Restrict)
+  detailMenu        DetailReservasiMenu[]
+
+  // Indexing untuk filter jadwal benturan, alokasi meja, dan riwayat pelanggan
+  @@index([userId])
+  @@index([mejaId, tanggal])
+  @@index([statusReservasi])
+  @@map("reservasi")
+}
+
+// ==============================================================================
+// 6. MODEL DETAIL RESERVASI MENU (Pre-order Menu)
+// ==============================================================================
+model DetailReservasiMenu {
+  id              String      @id @default(uuid()) @db.Uuid
+  reservasiId     String      @map("reservasi_id") @db.Uuid
+  menuId          String      @map("menu_id") @db.Uuid
+  jumlah          Int         @db.Integer
+  subtotal        Decimal     @db.Decimal(12, 2)
+  catatanKhusus   String?     @map("catatan_khusus") @db.Text
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  // Relasi Foreign Keys
+  reservasi       Reservasi   @relation(fields: [reservasiId], references: [id], onDelete: Cascade)
+  menu            Menu        @relation(fields: [menuId], references: [id], onDelete: Restrict)
+
+  @@index([reservasiId])
+  @@index([menuId])
+  @@map("detail_reservasi_menu")
+}
+
+// ==============================================================================
+// 7. MODEL PUSH SUBSCRIPTION (Web Push Notification)
+// ==============================================================================
+model PushSubscription {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  endpoint    String    @unique @db.Text
+  keysP256dh  String    @map("keys_p256dh") @db.Text
+  keysAuth    String    @map("keys_auth") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relasi Foreign Key
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
