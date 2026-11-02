@@ -17,11 +17,12 @@
     "dotenv": "^18.0.9",
     "ioredis": "^6.0.0",
     "jose": "^6.2.13",
-    "lucide-react": "^1.63.0",
+    "lucide-react": "^1.66.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-hook-form": "^7.91.0",
+    "sonner": "^2.0.8",
     "web-push": "^3.6.7",
     "zod": "^4.6.7"
   },
@@ -37,6 +38,6 @@
     "typescript": "^5"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.ts"
   }
 }

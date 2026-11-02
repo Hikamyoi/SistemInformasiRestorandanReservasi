@@ -41,12 +41,12 @@ export default function LoginForm() {
       const params = new URLSearchParams(window.location.search);
       const callbackUrl = params.get("callbackUrl");
 
-      if (callbackUrl) {
+      if (data.user?.role === "STAF") {
+        router.push("/staff/dashboard");
+      } else if (callbackUrl) {
         router.push(callbackUrl);
       } else if (data.user?.role === "ADMIN") {
         router.push("/admin");
-      } else if (data.user?.role === "STAF") {
-        router.push("/staf");
       } else {
         router.push("/");
       }

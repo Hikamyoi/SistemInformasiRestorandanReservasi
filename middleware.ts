@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   const isAdminRoute =
     pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
   const isStafRoute =
-    pathname.startsWith("/staf") || pathname.startsWith("/api/staf");
+    pathname.startsWith("/staff") || pathname.startsWith("/api/staff");
 
   if (!isAdminRoute && !isStafRoute) {
     return NextResponse.next();
@@ -87,8 +87,8 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin/:path*",
-    "/staf/:path*",
+    "/staff/:path*",
     "/api/admin/:path*",
-    "/api/staf/:path*",
+    "/api/staff/:path*",
   ],
 };
