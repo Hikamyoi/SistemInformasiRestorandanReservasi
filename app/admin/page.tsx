@@ -18,13 +18,22 @@ import {
   X,
 } from "lucide-react";
 
-const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-baloo" });
-const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-poppins" });
+const baloo = Baloo_2({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  variable: "--font-baloo",
+});
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-poppins",
+});
 
 /* ----------------------------- Gaya bersama ------------------------------ */
 
 const fontJudul = "font-[family-name:var(--font-baloo)]";
-const kartu = "rounded-3xl bg-white shadow-[0_10px_30px_-15px_rgba(120,80,0,0.3)]";
+const kartu =
+  "rounded-3xl bg-white shadow-[0_10px_30px_-15px_rgba(120,80,0,0.3)]";
 const inputClass =
   "w-full rounded-full border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-900 " +
   "placeholder:text-neutral-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-500/20";
@@ -63,14 +72,29 @@ interface Meja {
   lokasiArea: string;
 }
 
-const pesanError = (err: unknown) => (err instanceof Error ? err.message : "Terjadi kesalahan");
+interface ReservasiItem {
+  id: string;
+  tanggal: string;
+  jamMulai: string;
+  jamSelesai: string;
+  jumlahTamu: number;
+  statusReservasi: string;
+  statusPembayaran: string;
+  totalBayar: number;
+  catatan?: string | null;
+  user?: {
+    nama: string;
+    email: string;
+    noHp?: string;
+  };
+  meja?: {
+    nomorMeja: string;
+    lokasiArea: string;
+  };
+}
 
-// Data contoh untuk tab Rekap Transaksi (belum terhubung ke database)
-const CONTOH_TRANSAKSI = [
-  { kode: "RSV-2026-001", tamu: "Andi Wijaya", meja: "VIP-01", tanggal: "28 Okt 2026", jam: "19:00", total: 345000, status: "DIKONFIRMASI" },
-  { kode: "RSV-2026-002", tamu: "Maya Sari", meja: "M-02", tanggal: "28 Okt 2026", jam: "20:00", total: 140000, status: "MENUNGGU_KONFIRMASI" },
-  { kode: "RSV-2026-003", tamu: "Bambang Kusuma", meja: "M-01", tanggal: "29 Okt 2026", jam: "12:30", total: 95000, status: "SELESAI" },
-];
+const pesanError = (err: unknown) =>
+  err instanceof Error ? err.message : "Terjadi kesalahan";
 
 /* --------------------------- Komponen kecil ------------------------------ */
 
@@ -90,7 +114,9 @@ function NavButton({
       onClick={onClick}
       aria-current={aktif ? "page" : undefined}
       className={`flex w-full cursor-pointer items-center gap-3 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
-        aktif ? "bg-amber-100 text-amber-800" : "text-neutral-600 hover:bg-amber-50 hover:text-neutral-900"
+        aktif
+          ? "bg-amber-100 text-amber-800"
+          : "text-neutral-600 hover:bg-amber-50 hover:text-neutral-900"
       }`}
     >
       <span className="text-amber-600">{ikon}</span>
@@ -113,21 +139,33 @@ function KartuStat({
   return (
     <div className={`${kartu} flex items-center justify-between p-5`}>
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          {label}
+        </p>
         <p className={`${fontJudul} mt-1 text-4xl font-extrabold`}>{nilai}</p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-amber-700">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
           {catatan}
         </p>
       </div>
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">{ikon}</div>
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+        {ikon}
+      </div>
     </div>
   );
 }
 
-function Lencana({ kelas, children }: { kelas: string; children: React.ReactNode }) {
+function Lencana({
+  kelas,
+  children,
+}: {
+  kelas: string;
+  children: React.ReactNode;
+}) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${kelas}`}>
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${kelas}`}
+    >
       {children}
     </span>
   );
@@ -153,7 +191,12 @@ function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div role="dialog" aria-modal="true" aria-label={judul} className={`relative w-full ${lebar} ${kartu} p-6 sm:p-7`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={judul}
+        className={`relative w-full ${lebar} ${kartu} p-6 sm:p-7`}
+      >
         <button
           onClick={onTutup}
           aria-label="Tutup"
@@ -169,10 +212,18 @@ function Modal({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="mb-1.5 block pl-1 text-xs font-semibold text-neutral-700">{label}</label>
+      <label className="mb-1.5 block pl-1 text-xs font-semibold text-neutral-700">
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -207,7 +258,8 @@ function Toolbar({
   );
 }
 
-const thead = "border-b border-amber-100 bg-amber-50/70 text-[10px] uppercase tracking-wider text-neutral-500";
+const thead =
+  "border-b border-amber-100 bg-amber-50/70 text-[10px] uppercase tracking-wider text-neutral-500";
 const barisKosong = "px-5 py-12 text-center text-neutral-500";
 const tombolIkon = "cursor-pointer rounded-full p-2 transition-colors";
 
@@ -215,16 +267,22 @@ const tombolIkon = "cursor-pointer rounded-full p-2 transition-colors";
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"menu" | "meja" | "transaksi">("menu");
+  const [activeTab, setActiveTab] = useState<"menu" | "meja" | "transaksi">(
+    "menu",
+  );
 
   // Data State
   const [menus, setMenus] = useState<Menu[]>([]);
   const [mejas, setMejas] = useState<Meja[]>([]);
   const [categories, setCategories] = useState<Kategori[]>([]);
+  const [reservasis, setReservasis] = useState<ReservasiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // Modal State Menu
   const [isMenuModalOpen, setIsMenuModalOpen] = useState(false);
@@ -248,36 +306,49 @@ export default function AdminDashboard() {
     lokasiArea: "Indoor",
   });
 
-  const showToast = (message: string, type: "success" | "error" = "success") => {
+  const showToast = (
+    message: string,
+    type: "success" | "error" = "success",
+  ) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
   };
 
-  // Fetch Data Menu & Meja dari Backend API
+  // Fetch Data Menu, Meja, dan Reservasi dari Database
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resMenu, resMeja] = await Promise.all([fetch("/api/admin/menu"), fetch("/api/admin/meja")]);
+      const [resMenu, resMeja, resReservasi] = await Promise.all([
+        fetch("/api/admin/menu"),
+        fetch("/api/admin/meja"),
+        fetch("/api/admin/reservasi"),
+      ]);
 
       if (resMenu.ok) {
         const json = await resMenu.json();
         const menuList = json.data || [];
         setMenus(menuList);
 
-        // Ekstrak Kategori dari data menu yang ada
         const catsMap = new Map<string, string>();
         menuList.forEach((m: Menu) => {
           if (m.kategori?.id && m.kategori?.namaKategori) {
             catsMap.set(m.kategori.id, m.kategori.namaKategori);
           }
         });
-        const extractedCats = Array.from(catsMap.entries()).map(([id, namaKategori]) => ({ id, namaKategori }));
+        const extractedCats = Array.from(catsMap.entries()).map(
+          ([id, namaKategori]) => ({ id, namaKategori }),
+        );
         setCategories(extractedCats);
       }
 
       if (resMeja.ok) {
         const json = await resMeja.json();
         setMejas(json.data || []);
+      }
+
+      if (resReservasi.ok) {
+        const json = await resReservasi.json();
+        setReservasis(json.data || []);
       }
     } catch (err) {
       console.error(err);
@@ -347,7 +418,9 @@ export default function AdminDashboard() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Gagal menyimpan menu");
 
-      showToast(editingMenu ? "Menu berhasil diupdate!" : "Menu berhasil ditambahkan!");
+      showToast(
+        editingMenu ? "Menu berhasil diupdate!" : "Menu berhasil ditambahkan!",
+      );
       setIsMenuModalOpen(false);
       fetchData();
     } catch (err) {
@@ -414,7 +487,9 @@ export default function AdminDashboard() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Gagal menyimpan data meja");
 
-      showToast(editingMeja ? "Meja berhasil diupdate!" : "Meja berhasil ditambahkan!");
+      showToast(
+        editingMeja ? "Meja berhasil diupdate!" : "Meja berhasil ditambahkan!",
+      );
       setIsMejaModalOpen(false);
       fetchData();
     } catch (err) {
@@ -440,13 +515,24 @@ export default function AdminDashboard() {
   const filteredMenus = menus.filter(
     (m) =>
       m.namaMenu.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.kategori?.namaKategori.toLowerCase().includes(searchQuery.toLowerCase()),
+      m.kategori?.namaKategori
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()),
   );
 
   const filteredMejas = mejas.filter(
     (m) =>
       m.nomorMeja.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.lokasiArea.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const filteredReservasi = reservasis.filter(
+    (r) =>
+      (r.user?.nama || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.meja?.nomorMeja || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      r.id.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -459,7 +545,9 @@ export default function AdminDashboard() {
         <div
           role="status"
           className={`fixed right-5 top-5 z-50 flex items-center gap-2.5 rounded-2xl px-4 py-3 shadow-xl ring-1 ${
-            toast.type === "success" ? "bg-green-50 text-green-800 ring-green-200" : "bg-red-50 text-red-700 ring-red-200"
+            toast.type === "success"
+              ? "bg-green-50 text-green-800 ring-green-200"
+              : "bg-red-50 text-red-700 ring-red-200"
           }`}
         >
           {toast.type === "success" ? (
@@ -475,11 +563,16 @@ export default function AdminDashboard() {
       <aside className="flex w-full shrink-0 flex-col border-b border-amber-100 bg-white md:w-64 md:border-b-0 md:border-r">
         <div className="border-b border-amber-100 p-6">
           <div className="flex items-center gap-3">
-            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-lg">
+            <span
+              aria-hidden
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-lg"
+            >
               🍴
             </span>
             <div>
-              <h1 className={`${fontJudul} text-lg font-bold leading-tight`}>RestoReserve</h1>
+              <h1 className={`${fontJudul} text-lg font-bold leading-tight`}>
+                RestoReserve
+              </h1>
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">
                 Admin Panel
               </span>
@@ -488,13 +581,25 @@ export default function AdminDashboard() {
         </div>
 
         <nav aria-label="Menu admin" className="flex-1 space-y-1.5 p-4">
-          <NavButton aktif={activeTab === "menu"} onClick={() => setActiveTab("menu")} ikon={<UtensilsCrossed className="h-4 w-4" />}>
+          <NavButton
+            aktif={activeTab === "menu"}
+            onClick={() => setActiveTab("menu")}
+            ikon={<UtensilsCrossed className="h-4 w-4" />}
+          >
             Kelola Menu
           </NavButton>
-          <NavButton aktif={activeTab === "meja"} onClick={() => setActiveTab("meja")} ikon={<LayoutGrid className="h-4 w-4" />}>
+          <NavButton
+            aktif={activeTab === "meja"}
+            onClick={() => setActiveTab("meja")}
+            ikon={<LayoutGrid className="h-4 w-4" />}
+          >
             Kelola Meja
           </NavButton>
-          <NavButton aktif={activeTab === "transaksi"} onClick={() => setActiveTab("transaksi")} ikon={<Receipt className="h-4 w-4" />}>
+          <NavButton
+            aktif={activeTab === "transaksi"}
+            onClick={() => setActiveTab("transaksi")}
+            ikon={<Receipt className="h-4 w-4" />}
+          >
             Rekap Transaksi
           </NavButton>
         </nav>
@@ -526,23 +631,32 @@ export default function AdminDashboard() {
         <div className="mb-8">
           <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h2 className={`${fontJudul} text-3xl font-extrabold tracking-tight`}>
+              <h2
+                className={`${fontJudul} text-3xl font-extrabold tracking-tight`}
+              >
                 {activeTab === "menu" && "Katalog & Manajemen Menu"}
                 {activeTab === "meja" && "Manajemen Tata Letak Meja"}
                 {activeTab === "transaksi" && "Laporan & Rekap Reservasi"}
               </h2>
               <p className="mt-1 text-xs text-neutral-500">
-                Panel Kontrol Operasional Restoran - Terhubung ke Prisma & PostgreSQL
+                Panel Kontrol Operasional Restoran - Terhubung ke Prisma &
+                PostgreSQL
               </p>
             </div>
 
-            <button onClick={fetchData} disabled={loading} className={`${tombolGaris} self-start !py-2 text-xs`}>
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-amber-600" : ""}`} />
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className={`${tombolGaris} self-start !py-2 text-xs`}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin text-amber-600" : ""}`}
+              />
               <span>Segarkan Data</span>
             </button>
           </div>
 
-          {/* 4. RINGKASAN KARTU STATISTIK */}
+          {/* 4. RINGKASAN KARTU STATISTIK (SECARA DINAMIS) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <KartuStat
               label="Total Menu"
@@ -558,8 +672,8 @@ export default function AdminDashboard() {
             />
             <KartuStat
               label="Total Reservasi"
-              nilai={12}
-              catatan="Bulan Ini (Oktober 2026)"
+              nilai={reservasis.length}
+              catatan={`${reservasis.filter((r) => r.statusReservasi === "DIKONFIRMASI").length} Dikonfirmasi`}
               ikon={<Receipt className="h-6 w-6" />}
             />
           </div>
@@ -573,7 +687,10 @@ export default function AdminDashboard() {
               value={searchQuery}
               onChange={setSearchQuery}
               tombol={
-                <button onClick={handleOpenAddMenu} className={`${tombolOranye} w-full sm:w-auto`}>
+                <button
+                  onClick={handleOpenAddMenu}
+                  className={`${tombolOranye} w-full sm:w-auto`}
+                >
                   <Plus className="h-4 w-4" />
                   <span>Tambah Menu Baru</span>
                 </button>
@@ -607,31 +724,51 @@ export default function AdminDashboard() {
                     </tr>
                   ) : (
                     filteredMenus.map((menu) => (
-                      <tr key={menu.id} className="transition-colors hover:bg-amber-50/50">
+                      <tr
+                        key={menu.id}
+                        className="transition-colors hover:bg-amber-50/50"
+                      >
                         <td className={sel}>
                           <div className="flex items-center gap-3">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={menu.fotoUrl || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150"}
+                              src={
+                                menu.fotoUrl ||
+                                "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150"
+                              }
                               alt={menu.namaMenu}
                               className="h-12 w-12 shrink-0 rounded-full border-2 border-amber-100 bg-amber-50 object-cover"
                             />
                             <div>
-                              <p className="text-sm font-semibold">{menu.namaMenu}</p>
+                              <p className="text-sm font-semibold">
+                                {menu.namaMenu}
+                              </p>
                               {menu.deskripsi && (
-                                <p className="line-clamp-1 max-w-xs text-[11px] text-neutral-500">{menu.deskripsi}</p>
+                                <p className="line-clamp-1 max-w-xs text-[11px] text-neutral-500">
+                                  {menu.deskripsi}
+                                </p>
                               )}
                             </div>
                           </div>
                         </td>
                         <td className={sel}>
-                          <Lencana kelas={WARNA_NETRAL}>{menu.kategori?.namaKategori || "Umum"}</Lencana>
+                          <Lencana kelas={WARNA_NETRAL}>
+                            {menu.kategori?.namaKategori || "Umum"}
+                          </Lencana>
                         </td>
-                        <td className={`${sel} text-sm font-semibold text-amber-700`}>
+                        <td
+                          className={`${sel} text-sm font-semibold text-amber-700`}
+                        >
                           Rp {Number(menu.harga).toLocaleString("id-ID")}
                         </td>
                         <td className={sel}>
-                          <Lencana kelas={menu.statusKetersediaan ? WARNA_HIJAU : WARNA_MERAH}>
+                          <Lencana
+                            kelas={
+                              menu.statusKetersediaan
+                                ? WARNA_HIJAU
+                                : WARNA_MERAH
+                            }
+                          >
                             <span
                               className={`h-1.5 w-1.5 rounded-full ${menu.statusKetersediaan ? "bg-green-500" : "bg-red-500"}`}
                             />
@@ -649,7 +786,9 @@ export default function AdminDashboard() {
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteMenu(menu.id, menu.namaMenu)}
+                              onClick={() =>
+                                handleDeleteMenu(menu.id, menu.namaMenu)
+                              }
                               className={`${tombolIkon} bg-red-50 text-red-600 hover:bg-red-100`}
                               title="Hapus Menu"
                               aria-label={`Hapus ${menu.namaMenu}`}
@@ -675,7 +814,10 @@ export default function AdminDashboard() {
               value={searchQuery}
               onChange={setSearchQuery}
               tombol={
-                <button onClick={handleOpenAddMeja} className={`${tombolOranye} w-full sm:w-auto`}>
+                <button
+                  onClick={handleOpenAddMeja}
+                  className={`${tombolOranye} w-full sm:w-auto`}
+                >
                   <Plus className="h-4 w-4" />
                   <span>Tambah Meja Baru</span>
                 </button>
@@ -709,16 +851,32 @@ export default function AdminDashboard() {
                     </tr>
                   ) : (
                     filteredMejas.map((meja) => (
-                      <tr key={meja.id} className="transition-colors hover:bg-amber-50/50">
-                        <td className={`${sel} ${fontJudul} text-base font-bold`}>{meja.nomorMeja}</td>
-                        <td className={`${sel} text-neutral-600`}>
-                          <span className="font-semibold text-neutral-900">{meja.kapasitas}</span> Orang
+                      <tr
+                        key={meja.id}
+                        className="transition-colors hover:bg-amber-50/50"
+                      >
+                        <td
+                          className={`${sel} ${fontJudul} text-base font-bold`}
+                        >
+                          {meja.nomorMeja}
                         </td>
-                        <td className={`${sel} text-neutral-600`}>{meja.lokasiArea}</td>
+                        <td className={`${sel} text-neutral-600`}>
+                          <span className="font-semibold text-neutral-900">
+                            {meja.kapasitas}
+                          </span>{" "}
+                          Orang
+                        </td>
+                        <td className={`${sel} text-neutral-600`}>
+                          {meja.lokasiArea}
+                        </td>
                         <td className={sel}>
                           <Lencana
                             kelas={
-                              meja.status === "TERSEDIA" ? WARNA_HIJAU : meja.status === "DIISI" ? WARNA_AMBER : WARNA_MERAH
+                              meja.status === "TERSEDIA"
+                                ? WARNA_HIJAU
+                                : meja.status === "DIISI"
+                                  ? WARNA_AMBER
+                                  : WARNA_MERAH
                             }
                           >
                             {meja.status}
@@ -735,7 +893,9 @@ export default function AdminDashboard() {
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteMeja(meja.id, meja.nomorMeja)}
+                              onClick={() =>
+                                handleDeleteMeja(meja.id, meja.nomorMeja)
+                              }
                               className={`${tombolIkon} bg-red-50 text-red-600 hover:bg-red-100`}
                               title="Hapus Meja"
                               aria-label={`Hapus meja ${meja.nomorMeja}`}
@@ -753,47 +913,104 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* ================= TAB REKAP TRANSAKSI ================= */}
+        {/* ================= TAB REKAP TRANSAKSI (DATA ASLI DARI DATABASE) ================= */}
         {activeTab === "transaksi" && (
           <div className={`${kartu} p-6`}>
-            <h3 className={`${fontJudul} mb-2 text-xl font-bold`}>Riwayat & Status Reservasi Masuk</h3>
-            <p className="mb-6 text-xs text-neutral-500">
-              Data transaksi pesanan meja dan pra-pesan makanan yang terhubung ke model <code>Reservasi</code> di Prisma.
-            </p>
-
-            <div className="space-y-3">
-              {CONTOH_TRANSAKSI.map((item) => (
-                <div
-                  key={item.kode}
-                  className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-100 bg-[#FFFBF2] p-4 sm:flex-row sm:items-center"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-amber-700">{item.kode}</span>
-                      <span className="text-xs text-neutral-400">•</span>
-                      <span className="text-xs font-semibold">{item.tamu}</span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-neutral-500">
-                      Meja {item.meja} | {item.tanggal} ({item.jam})
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 sm:justify-end">
-                    <span className="text-xs font-bold">Rp {item.total.toLocaleString("id-ID")}</span>
-                    <Lencana
-                      kelas={
-                        item.status === "DIKONFIRMASI"
-                          ? WARNA_HIJAU
-                          : item.status === "SELESAI"
-                            ? WARNA_NETRAL
-                            : WARNA_AMBER
-                      }
-                    >
-                      {item.status}
-                    </Lencana>
-                  </div>
-                </div>
-              ))}
+            <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+              <div>
+                <h3 className={`${fontJudul} text-xl font-bold`}>
+                  Riwayat & Status Reservasi Masuk
+                </h3>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Data transaksi pesanan meja dan pra-pesan makanan yang
+                  terhubung langsung ke tabel database Prisma.
+                </p>
+              </div>
+              <div className="w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Cari tamu / meja / ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
             </div>
+
+            {loading ? (
+              <div className="py-12 text-center text-xs text-neutral-500">
+                <RefreshCw className="mx-auto mb-2 h-6 w-6 animate-spin text-amber-500" />
+                Memuat data riwayat reservasi...
+              </div>
+            ) : filteredReservasi.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-amber-200 bg-[#FFFBF2] py-12 text-center text-xs text-neutral-500">
+                Belum ada data reservasi yang sesuai.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredReservasi.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-100 bg-[#FFFBF2] p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-amber-700">
+                          {item.id.slice(0, 8).toUpperCase()}
+                        </span>
+                        <span className="text-xs text-neutral-400">•</span>
+                        <span className="text-xs font-semibold text-neutral-900">
+                          {item.user?.nama || "Pelanggan Anonim"}
+                        </span>
+                        {item.user?.noHp && (
+                          <span className="text-[11px] text-neutral-500">
+                            ({item.user.noHp})
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-neutral-500">
+                        Meja {item.meja?.nomorMeja || "-"} (
+                        {item.meja?.lokasiArea || "-"}) |{" "}
+                        {new Date(item.tanggal).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}{" "}
+                        ({item.jamMulai} - {item.jamSelesai}) •{" "}
+                        {item.jumlahTamu} Tamu
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className="text-xs font-bold text-neutral-900">
+                        Rp {item.totalBayar.toLocaleString("id-ID")}
+                      </span>
+                      <Lencana
+                        kelas={
+                          item.statusReservasi === "DIKONFIRMASI"
+                            ? WARNA_HIJAU
+                            : item.statusReservasi === "SELESAI"
+                              ? WARNA_NETRAL
+                              : item.statusReservasi === "DIBATALKAN"
+                                ? WARNA_MERAH
+                                : WARNA_AMBER
+                        }
+                      >
+                        {item.statusReservasi}
+                      </Lencana>
+                      <Lencana
+                        kelas={
+                          item.statusPembayaran === "LUNAS"
+                            ? WARNA_HIJAU
+                            : WARNA_NETRAL
+                        }
+                      >
+                        {item.statusPembayaran}
+                      </Lencana>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -804,7 +1021,8 @@ export default function AdminDashboard() {
           judul={editingMenu ? "Edit Data Menu" : "Tambah Menu Baru"}
           deskripsi={
             <>
-              Validasi otomatis melalui skema Zod di <code>/api/admin/menu</code>
+              Validasi otomatis melalui skema Zod di{" "}
+              <code>/api/admin/menu</code>
             </>
           }
           lebar="max-w-lg"
@@ -816,7 +1034,9 @@ export default function AdminDashboard() {
                 type="text"
                 required
                 value={menuForm.namaMenu}
-                onChange={(e) => setMenuForm({ ...menuForm, namaMenu: e.target.value })}
+                onChange={(e) =>
+                  setMenuForm({ ...menuForm, namaMenu: e.target.value })
+                }
                 placeholder="e.g. Nasi Goreng Wagyu"
                 className={inputClass}
               />
@@ -829,7 +1049,9 @@ export default function AdminDashboard() {
                   required
                   min={1000}
                   value={menuForm.harga}
-                  onChange={(e) => setMenuForm({ ...menuForm, harga: e.target.value })}
+                  onChange={(e) =>
+                    setMenuForm({ ...menuForm, harga: e.target.value })
+                  }
                   placeholder="50000"
                   className={inputClass}
                 />
@@ -838,7 +1060,9 @@ export default function AdminDashboard() {
               <Field label="Kategori">
                 <select
                   value={menuForm.kategoriId}
-                  onChange={(e) => setMenuForm({ ...menuForm, kategoriId: e.target.value })}
+                  onChange={(e) =>
+                    setMenuForm({ ...menuForm, kategoriId: e.target.value })
+                  }
                   className={inputClass}
                 >
                   {categories.length > 0 ? (
@@ -858,7 +1082,9 @@ export default function AdminDashboard() {
               <input
                 type="url"
                 value={menuForm.fotoUrl}
-                onChange={(e) => setMenuForm({ ...menuForm, fotoUrl: e.target.value })}
+                onChange={(e) =>
+                  setMenuForm({ ...menuForm, fotoUrl: e.target.value })
+                }
                 placeholder="https://images.unsplash.com/..."
                 className={inputClass}
               />
@@ -868,7 +1094,9 @@ export default function AdminDashboard() {
               <textarea
                 rows={2}
                 value={menuForm.deskripsi}
-                onChange={(e) => setMenuForm({ ...menuForm, deskripsi: e.target.value })}
+                onChange={(e) =>
+                  setMenuForm({ ...menuForm, deskripsi: e.target.value })
+                }
                 placeholder="Bahan rempah pilihan, potongan daging..."
                 className={areaClass}
               />
@@ -879,19 +1107,35 @@ export default function AdminDashboard() {
                 type="checkbox"
                 id="statusKetersediaan"
                 checked={menuForm.statusKetersediaan}
-                onChange={(e) => setMenuForm({ ...menuForm, statusKetersediaan: e.target.checked })}
+                onChange={(e) =>
+                  setMenuForm({
+                    ...menuForm,
+                    statusKetersediaan: e.target.checked,
+                  })
+                }
                 className="h-4 w-4 cursor-pointer rounded accent-amber-500"
               />
-              <label htmlFor="statusKetersediaan" className="cursor-pointer text-xs text-neutral-700">
+              <label
+                htmlFor="statusKetersediaan"
+                className="cursor-pointer text-xs text-neutral-700"
+              >
                 Menu Tersedia untuk Dipesan
               </label>
             </div>
 
             <div className="flex justify-end gap-2 border-t border-amber-100 pt-4">
-              <button type="button" onClick={() => setIsMenuModalOpen(false)} className={tombolGaris}>
+              <button
+                type="button"
+                onClick={() => setIsMenuModalOpen(false)}
+                className={tombolGaris}
+              >
                 Batal
               </button>
-              <button type="submit" disabled={actionLoading} className={tombolOranye}>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className={tombolOranye}
+              >
                 {actionLoading ? "Menyimpan..." : "Simpan Menu"}
               </button>
             </div>
@@ -905,7 +1149,8 @@ export default function AdminDashboard() {
           judul={editingMeja ? "Edit Data Meja" : "Tambah Meja Baru"}
           deskripsi={
             <>
-              Validasi otomatis melalui skema Zod di <code>/api/admin/meja</code>
+              Validasi otomatis melalui skema Zod di{" "}
+              <code>/api/admin/meja</code>
             </>
           }
           lebar="max-w-md"
@@ -917,7 +1162,9 @@ export default function AdminDashboard() {
                 type="text"
                 required
                 value={mejaForm.nomorMeja}
-                onChange={(e) => setMejaForm({ ...mejaForm, nomorMeja: e.target.value })}
+                onChange={(e) =>
+                  setMejaForm({ ...mejaForm, nomorMeja: e.target.value })
+                }
                 placeholder="e.g. M-05 atau VIP-02"
                 className={inputClass}
               />
@@ -931,7 +1178,9 @@ export default function AdminDashboard() {
                   min={1}
                   max={50}
                   value={mejaForm.kapasitas}
-                  onChange={(e) => setMejaForm({ ...mejaForm, kapasitas: e.target.value })}
+                  onChange={(e) =>
+                    setMejaForm({ ...mejaForm, kapasitas: e.target.value })
+                  }
                   placeholder="4"
                   className={inputClass}
                 />
@@ -940,7 +1189,12 @@ export default function AdminDashboard() {
               <Field label="Status">
                 <select
                   value={mejaForm.status}
-                  onChange={(e) => setMejaForm({ ...mejaForm, status: e.target.value as Meja["status"] })}
+                  onChange={(e) =>
+                    setMejaForm({
+                      ...mejaForm,
+                      status: e.target.value as Meja["status"],
+                    })
+                  }
                   className={inputClass}
                 >
                   <option value="TERSEDIA">TERSEDIA</option>
@@ -955,17 +1209,27 @@ export default function AdminDashboard() {
                 type="text"
                 required
                 value={mejaForm.lokasiArea}
-                onChange={(e) => setMejaForm({ ...mejaForm, lokasiArea: e.target.value })}
+                onChange={(e) =>
+                  setMejaForm({ ...mejaForm, lokasiArea: e.target.value })
+                }
                 placeholder="Indoor, Outdoor, Rooftop, VIP Room"
                 className={inputClass}
               />
             </Field>
 
             <div className="flex justify-end gap-2 border-t border-amber-100 pt-4">
-              <button type="button" onClick={() => setIsMejaModalOpen(false)} className={tombolGaris}>
+              <button
+                type="button"
+                onClick={() => setIsMejaModalOpen(false)}
+                className={tombolGaris}
+              >
                 Batal
               </button>
-              <button type="submit" disabled={actionLoading} className={tombolOranye}>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className={tombolOranye}
+              >
                 {actionLoading ? "Menyimpan..." : "Simpan Meja"}
               </button>
             </div>

@@ -3,6 +3,9 @@ import { getCurrentUser } from "@/lib/auth";
 import AuthShell from "@/components/landing/AuthShell";
 import LoginForm from "@/components/LoginForm";
 
+// Memberitahu Next.js 16 bahwa rute ini sengaja menunggu pengecekan sesi (blocking) sebelum render
+export const instant = false;
+
 export default async function LoginPage() {
   // 1. Cek sesi user saat ini
   const user = await getCurrentUser();
