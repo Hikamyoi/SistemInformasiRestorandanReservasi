@@ -53,21 +53,15 @@ export default function LoginForm() {
 
       router.refresh();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Terjadi kesalahan. Silakan coba lagi.");
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Terjadi kesalahan. Silakan coba lagi.",
+      );
     } finally {
       setLoading(false);
     }
   };
-
-  // Helper untuk mengisi cepat data akun dummy hasil seed
-  const fillCredentials = (accEmail: string, accPass: string) => {
-    setEmail(accEmail);
-    setPassword(accPass);
-    setErrorMsg("");
-  };
-
-  const chipAkun =
-    "rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-medium text-neutral-700 transition-colors hover:border-amber-500 hover:text-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500";
 
   return (
     <>
@@ -84,7 +78,9 @@ export default function LoginForm() {
       {/* Form Login */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="email" className={labelClass}>Alamat email</label>
+          <label htmlFor="email" className={labelClass}>
+            Alamat email
+          </label>
           <input
             id="email"
             type="email"
@@ -98,7 +94,9 @@ export default function LoginForm() {
         </div>
 
         <div>
-          <label htmlFor="password" className={labelClass}>Password</label>
+          <label htmlFor="password" className={labelClass}>
+            Password
+          </label>
           <input
             id="password"
             type="password"
@@ -114,7 +112,7 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-full bg-amber-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_20px_-8px_rgba(245,158,11,0.7)] transition-colors hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-full bg-amber-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_20px_-8px_rgba(245,158,11,0.7)] transition-colors hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
         >
           {loading ? "Memproses masuk…" : "Masuk ke sistem"}
         </button>
@@ -122,28 +120,13 @@ export default function LoginForm() {
 
       <p className="mt-5 text-center text-sm text-neutral-500">
         Belum punya akun?{" "}
-        <Link href="/daftar" className="font-semibold text-amber-600 hover:underline">
+        <Link
+          href="/daftar"
+          className="font-semibold text-amber-600 hover:underline"
+        >
           Daftar
         </Link>
       </p>
-
-      {/* Tombol cepat akun dummy (sesuai seed.js database) */}
-      <div className="mt-8 border-t border-amber-100 pt-6">
-        <p className="mb-3 text-center text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-          Akun percobaan (sesuai seed.js)
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => fillCredentials("admin@resto.com", "Password123!")} className={chipAkun}>
-            👑 Admin
-          </button>
-          <button type="button" onClick={() => fillCredentials("staf@resto.com", "Password123!")} className={chipAkun}>
-            🧑‍🍳 Staf
-          </button>
-          <button type="button" onClick={() => fillCredentials("andi@gmail.com", "Password123!")} className={chipAkun}>
-            🙋 Pelanggan
-          </button>
-        </div>
-      </div>
     </>
   );
 }
