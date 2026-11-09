@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 const inputClass =
   "w-full rounded-full border border-neutral-200 bg-white px-5 py-3 text-sm text-neutral-900 shadow-sm " +
@@ -13,6 +14,7 @@ export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -93,20 +95,37 @@ export default function LoginForm() {
           />
         </div>
 
+        {/* Input Password dengan Tombol Mata Show/Hide */}
         <div>
           <label htmlFor="password" className={labelClass}>
             Password
           </label>
-          <input
-            id="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className={inputClass}
-          />
+          <div className="relative flex items-center">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className={`${inputClass} !pr-12`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={
+                showPassword ? "Sembunyikan password" : "Lihat password"
+              }
+              className="absolute right-4 flex h-6 w-6 cursor-pointer items-center justify-center text-neutral-400 transition-colors hover:text-neutral-700"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         <button
@@ -114,7 +133,7 @@ export default function LoginForm() {
           disabled={loading}
           className="w-full rounded-full bg-amber-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_10px_20px_-8px_rgba(245,158,11,0.7)] transition-colors hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
         >
-          {loading ? "Memproses masuk…" : "Masuk ke sistem"}
+          {loading ? "Memproses masuk…" : "Masuk"}
         </button>
       </form>
 

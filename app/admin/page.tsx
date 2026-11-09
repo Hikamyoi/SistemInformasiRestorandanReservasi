@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Baloo_2, Poppins } from "next/font/google";
+import Link from "next/link";
 import {
   UtensilsCrossed,
   LayoutGrid,
@@ -562,22 +563,40 @@ export default function AdminDashboard() {
       {/* ================= 1. SIDEBAR NAVIGASI ================= */}
       <aside className="flex w-full shrink-0 flex-col border-b border-amber-100 bg-white md:w-64 md:border-b-0 md:border-r">
         <div className="border-b border-amber-100 p-6">
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-400 text-lg"
-            >
-              🍴
-            </span>
+          <Link
+            href="/"
+            title="Klik untuk melihat Website"
+            className="flex items-center gap-3 transition-opacity hover:opacity-90"
+          >
+            {/* Ikon Vektor 11 Garpu & Pisau Asli Elevenicious */}
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500 p-2 shadow-sm">
+              <svg
+                viewBox="0 0 100 100"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-full w-full"
+              >
+                <g fill="#FFFFFF">
+                  <path d="M35 18V38C35 41.5 37.5 44 41 45V80H45V45C48.5 44 51 41.5 51 38V18H48V34H46V18H44V34H42V18H39V34H37V18H35Z" />
+                  <path d="M36 40L26 47V53L36 46V40Z" />
+                </g>
+                <g fill="#FFFFFF">
+                  <path d="M57 18H62V42L68 56C68 68 63 80 57 80V18Z" />
+                  <path d="M57 40L48 47V53L57 46V40Z" />
+                </g>
+              </svg>
+            </div>
             <div>
-              <h1 className={`${fontJudul} text-lg font-bold leading-tight`}>
-                RestoReserve
+              <h1
+                className={`${fontJudul} text-lg font-extrabold leading-tight tracking-tight text-neutral-900`}
+              >
+                Eleven<span className="text-amber-500">icious</span>
               </h1>
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">
                 Admin Panel
               </span>
             </div>
-          </div>
+          </Link>
         </div>
 
         <nav aria-label="Menu admin" className="flex-1 space-y-1.5 p-4">
@@ -656,7 +675,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* 4. RINGKASAN KARTU STATISTIK (SECARA DINAMIS) */}
+          {/* RINGKASAN KARTU STATISTIK (SECARA DINAMIS) */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <KartuStat
               label="Total Menu"

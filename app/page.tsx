@@ -94,45 +94,50 @@ async function IsiHalaman() {
           </h1>
           <p className="mt-4 max-w-md text-sm leading-7 text-neutral-500">
             Pesan meja dan menu favorit dari rumah, lalu datang tanpa antre.
-            Pilih jadwal dan tempat duduk, kami siapkan sisanya.
+            Pilih jadwal dan tempat duduk, kami siapkan sisanya. Buka setiap
+            hari pukul {JAM_BUKA}–{JAM_TUTUP} WIB.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a href="#menu" className={tombolOranye}>
               Lihat Menu
             </a>
           </div>
-          <p className="mt-4 text-xs text-neutral-400">
-            Buka setiap hari pukul {JAM_BUKA}–{JAM_TUTUP} WIB
-          </p>
         </div>
 
+        {/* Kolom Kanan: Piring Hero & Kategori Menu (Bebas Tabrakan di HP) */}
         <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+          {/* Background dekoratif diberi pointer-events-none agar tidak menyerap klik/sentuhan */}
           <div
             aria-hidden
-            className="absolute inset-[6%] rounded-full bg-amber-100/70"
+            className="pointer-events-none absolute inset-[6%] rounded-full bg-amber-100/70"
           />
           <div
             aria-hidden
-            className="absolute -right-2 top-2 h-24 w-24 bg-[radial-gradient(#f59e0b66_1.5px,transparent_1.5px)] [background-size:10px_10px]"
-          />
-          <Piring
-            foto={hero?.foto}
-            nama={hero?.nama ?? "Hidangan"}
-            className="relative mx-auto w-[78%]"
+            className="pointer-events-none absolute -right-2 top-2 h-24 w-24 bg-[radial-gradient(#f59e0b66_1.5px,transparent_1.5px)] [background-size:10px_10px]"
           />
 
+          {/* Gambar Piring */}
+          <div className="relative z-10">
+            <Piring
+              foto={hero?.foto}
+              nama={hero?.nama ?? "Hidangan"}
+              className="relative mx-auto w-[78%]"
+            />
+          </div>
+
+          {/* Tombol Kategori: Diberi z-20 & mt-10 agar tidak overlap dan selalu bisa dipencet di HP */}
           {namaKategori.length > 0 && (
-            <ul className="mt-6 flex flex-wrap justify-center gap-2 lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2 lg:flex-col lg:flex-nowrap">
+            <ul className="relative z-20 mt-10 flex flex-wrap justify-center gap-2.5 lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2 lg:flex-col lg:flex-nowrap">
               {namaKategori.slice(0, 5).map((nama) => (
                 <li key={nama}>
                   <a
                     href="#menu"
-                    className="flex items-center gap-2 rounded-full bg-white py-1.5 pl-1.5 pr-4 text-xs font-medium text-neutral-700 shadow-[0_8px_20px_-10px_rgba(120,80,0,0.4)] hover:text-amber-600"
+                    className="flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-4 text-xs font-semibold text-neutral-700 shadow-[0_8px_20px_-10px_rgba(120,80,0,0.35)] ring-1 ring-amber-100 transition-all hover:text-amber-600 active:scale-95"
                   >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
                       {nama.charAt(0).toUpperCase()}
                     </span>
-                    {nama}
+                    <span>{nama}</span>
                   </a>
                 </li>
               ))}
