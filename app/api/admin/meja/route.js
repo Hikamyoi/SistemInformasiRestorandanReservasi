@@ -2,27 +2,59 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
-// Skema Validasi Zod untuk Input Meja
-const mejaSchema = z.object({
-  nomorMeja: z.string().min(1, "Nomor meja wajib diisi").max(20),
+const RuanganEnum = z.enum([
+  "INDOOR_NON_SMOKING",
+  "OUTDOOR_SMOKING",
+  "VIP_NON_SMOKING",
+]);
+
+function defaultLokasiByRuangan(ruangan) {
+  switch (ruangan) {
+    case "VIP_NON_SMOKING":
+      return "Private VIP Room";
+    case "OUTDOOR_SMOKING":
+      return "Outdoor Garden Breeze";
+    case "INDOOR_NON_SMOKING":
+    default:
+      return "Indoor Hall Utama";
+  }
+}
+
+// Skema Dasar untuk Update Parsial (tanpa .default agar field yang tidak dikirim tidak tertimpa)
+const mejaUpdateSchema = z
+  .object({
+    nomorMeja: z.string().trim().min(1, "Nomor meja wajib diisi").max(20),
+    kapasitas: z.coerce
+      .number()
+      .int("Kapasitas harus bilangan bulat")
+      .min(1, "Kapasitas minimal 1 orang")
+      .max(50, "Kapasitas maksimal 50 orang"),
+    status: z.enum(["TERSEDIA", "DIISI", "DIBLOKIR"]),
+    ruangan: RuanganEnum,
+    lokasiArea: z.string().trim().min(2, "Lokasi area wajib diisi").max(50),
+    viewMeja: z.string().trim().max(150).nullable().optional(),
+  })
+  .partial();
+
+// Skema Validasi Zod untuk Tambah Meja Baru
+const mejaCreateSchema = z.object({
+  nomorMeja: z.string().trim().min(1, "Nomor meja wajib diisi").max(20),
   kapasitas: z.coerce
     .number()
-    .int()
+    .int("Kapasitas harus bilangan bulat")
     .min(1, "Kapasitas minimal 1 orang")
-    .max(50),
+    .max(50, "Kapasitas maksimal 50 orang"),
   status: z.enum(["TERSEDIA", "DIISI", "DIBLOKIR"]).default("TERSEDIA"),
-  lokasiArea: z
-    .string()
-    .min(2, "Lokasi area wajib diisi")
-    .max(50)
-    .default("Indoor"),
+  ruangan: RuanganEnum.default("INDOOR_NON_SMOKING"),
+  lokasiArea: z.string().trim().max(50).optional(),
+  viewMeja: z.string().trim().max(150).nullable().optional(),
 });
 
 // 1. GET: Ambil daftar seluruh meja
 export async function GET() {
   try {
     const mejaList = await prisma.meja.findMany({
-      orderBy: { nomorMeja: "asc" },
+      orderBy: [{ ruangan: "asc" }, { nomorMeja: "asc" }],
     });
 
     return NextResponse.json({ success: true, data: mejaList });
@@ -39,16 +71,23 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const validation = mejaSchema.safeParse(body);
+    const validation = mejaCreateSchema.safeParse(body);
 
     if (!validation.success) {
+      const pesanPertama =
+        validation.error.issues?.[0]?.message || "Data meja tidak valid";
       return NextResponse.json(
-        { success: false, errors: validation.error.flatten().fieldErrors },
+        {
+          success: false,
+          message: pesanPertama,
+          errors: validation.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
 
-    const { nomorMeja, kapasitas, status, lokasiArea } = validation.data;
+    const { nomorMeja, kapasitas, status, ruangan, lokasiArea, viewMeja } =
+      validation.data;
 
     // Cek duplikasi nomor meja
     const existing = await prisma.meja.findUnique({
@@ -63,7 +102,17 @@ export async function POST(request) {
     }
 
     const newMeja = await prisma.meja.create({
-      data: { nomorMeja, kapasitas, status, lokasiArea },
+      data: {
+        nomorMeja,
+        kapasitas,
+        status,
+        ruangan,
+        lokasiArea:
+          lokasiArea && lokasiArea.length >= 2
+            ? lokasiArea
+            : defaultLokasiByRuangan(ruangan),
+        viewMeja: viewMeja ? viewMeja : null,
+      },
     });
 
     return NextResponse.json(
@@ -92,17 +141,28 @@ export async function PUT(request) {
       );
     }
 
-    const validation = mejaSchema.partial().safeParse(dataToUpdate);
+    const validation = mejaUpdateSchema.safeParse(dataToUpdate);
     if (!validation.success) {
+      const pesanPertama =
+        validation.error.issues?.[0]?.message || "Data update meja tidak valid";
       return NextResponse.json(
-        { success: false, errors: validation.error.flatten().fieldErrors },
+        {
+          success: false,
+          message: pesanPertama,
+          errors: validation.error.flatten().fieldErrors,
+        },
         { status: 400 },
       );
     }
 
+    const dataBersih = { ...validation.data };
+    if ("viewMeja" in dataBersih) {
+      dataBersih.viewMeja = dataBersih.viewMeja || null;
+    }
+
     const updatedMeja = await prisma.meja.update({
       where: { id },
-      data: validation.data,
+      data: dataBersih,
     });
 
     return NextResponse.json({
@@ -142,9 +202,16 @@ export async function DELETE(request) {
     });
   } catch (error) {
     console.error("Error DELETE Meja:", error);
+    const isForeignKey =
+      error instanceof Error && error.message.includes("Foreign key");
     return NextResponse.json(
-      { success: false, message: "Gagal menghapus meja" },
-      { status: 500 },
+      {
+        success: false,
+        message: isForeignKey
+          ? "Meja sudah memiliki riwayat reservasi, ubah status ke DIBLOKIR jika ingin menonaktifkan"
+          : "Gagal menghapus meja",
+      },
+      { status: isForeignKey ? 400 : 500 },
     );
   }
 }

@@ -4,8 +4,15 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import PageShell from "@/components/landing/PageShell";
-import CancelReservationButton from "@/components/CancelReservationButton";
 import PushToggle from "@/components/PushToggle";
+import AksiReservasiPelanggan from "@/components/AksiReservasiPelanggan";
+
+interface MenuOption {
+  id: string;
+  namaMenu: string;
+  harga: number;
+  kategori?: string | null;
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Helper tampilan                                                           */
@@ -21,36 +28,57 @@ const rupiah = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
+// Helper konversi objek Date ke format string "HH:mm" agar aman di-render React
+const formatJam = (jam: Date | string | null | undefined): string => {
+  if (!jam) return "--:--";
+  if (typeof jam === "string") return jam.slice(0, 5);
+  if (jam instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(jam.getUTCHours())}:${pad(jam.getUTCMinutes())}`;
+  }
+  return String(jam);
+};
+
 // Kolom `tanggal` disimpan sebagai tengah malam UTC → tampilkan juga dengan UTC
-const formatTanggal = (d: Date) =>
-  d.toLocaleDateString("id-ID", {
+const formatTanggal = (d: Date | string) => {
+  const dateObj = typeof d === "string" ? new Date(d) : d;
+  return dateObj.toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+};
 
 // "Hari ini" menurut zona waktu restoran (YYYY-MM-DD)
 const hariIniWIB = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
 
 const STATUS_RESERVASI = {
-  MENUNGGU_KONFIRMASI: { label: "Menunggu konfirmasi", kelas: "bg-amber-100 text-amber-800" },
+  MENUNGGU_KONFIRMASI: {
+    label: "Menunggu konfirmasi",
+    kelas: "bg-amber-100 text-amber-800",
+  },
   DIKONFIRMASI: { label: "Dikonfirmasi", kelas: "bg-green-50 text-green-700" },
   SELESAI: { label: "Selesai", kelas: "bg-neutral-100 text-neutral-600" },
   DIBATALKAN: { label: "Dibatalkan", kelas: "bg-red-50 text-red-700" },
 } as const;
 
 const STATUS_PEMBAYARAN = {
-  BELUM_BAYAR: { label: "Belum dibayar", kelas: "bg-neutral-100 text-neutral-600" },
+  BELUM_BAYAR: {
+    label: "Belum dibayar",
+    kelas: "bg-neutral-100 text-neutral-600",
+  },
   LUNAS: { label: "Lunas", kelas: "bg-green-50 text-green-700" },
   DIBATALKAN: { label: "Dibatalkan", kelas: "bg-red-50 text-red-700" },
 } as const;
 
 function Badge({ label, kelas }: { label: string; kelas: string }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${kelas}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${kelas}`}
+    >
       {label}
     </span>
   );
@@ -62,17 +90,38 @@ function Badge({ label, kelas }: { label: string; kelas: string }) {
 
 type ReservasiLengkap = Awaited<ReturnType<typeof ambilReservasi>>[number];
 
-function KartuReservasi({ r, bisaDibatalkan }: { r: ReservasiLengkap; bisaDibatalkan: boolean }) {
-  const status = STATUS_RESERVASI[r.statusReservasi];
-  const bayar = STATUS_PEMBAYARAN[r.statusPembayaran];
+function KartuReservasi({
+  r,
+  daftarMenu,
+}: {
+  r: ReservasiLengkap;
+  daftarMenu: MenuOption[];
+}) {
+  const status =
+    STATUS_RESERVASI[r.statusReservasi as keyof typeof STATUS_RESERVASI] ||
+    STATUS_RESERVASI.MENUNGGU_KONFIRMASI;
+  const bayar =
+    STATUS_PEMBAYARAN[r.statusPembayaran as keyof typeof STATUS_PEMBAYARAN] ||
+    STATUS_PEMBAYARAN.BELUM_BAYAR;
 
   return (
     <article className="rounded-3xl bg-white p-5 shadow-[0_10px_30px_-15px_rgba(120,80,0,0.3)] sm:p-7">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className={`${fontJudul} text-lg font-bold text-neutral-900`}>{formatTanggal(r.tanggal)}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className={`${fontJudul} text-lg font-bold text-neutral-900`}>
+              {formatTanggal(r.tanggal)}
+            </h3>
+            {r.kodeBooking && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-800">
+                {r.kodeBooking}
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-sm text-neutral-500">
-            {r.jamMulai}–{r.jamSelesai} · Meja {r.meja.nomorMeja} ({r.meja.lokasiArea}) · {r.jumlahTamu} tamu
+            {formatJam(r.jamMulai)}–{formatJam(r.jamSelesai)} · Meja{" "}
+            {r.meja.nomorMeja} ({r.meja.ruangan || r.meja.lokasiArea}) ·{" "}
+            {r.jumlahTamu} tamu
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -84,14 +133,23 @@ function KartuReservasi({ r, bisaDibatalkan }: { r: ReservasiLengkap; bisaDibata
       {r.detailMenu.length > 0 && (
         <ul className="mt-4 divide-y divide-amber-100 rounded-2xl border border-amber-100 bg-[#FFFBF2] text-sm">
           {r.detailMenu.map((d) => (
-            <li key={d.id} className="flex items-start justify-between gap-3 px-4 py-3">
+            <li
+              key={d.id}
+              className="flex items-start justify-between gap-3 px-4 py-3"
+            >
               <div className="min-w-0">
                 <p className="text-neutral-800">
                   {d.jumlah}× {d.menu.namaMenu}
                 </p>
-                {d.catatanKhusus && <p className="text-xs text-neutral-500">Catatan: {d.catatanKhusus}</p>}
+                {d.catatanKhusus && (
+                  <p className="text-xs text-neutral-500">
+                    Catatan: {d.catatanKhusus}
+                  </p>
+                )}
               </div>
-              <span className="shrink-0 tabular-nums text-neutral-700">{rupiah.format(Number(d.subtotal))}</span>
+              <span className="shrink-0 tabular-nums text-neutral-700">
+                {rupiah.format(Number(d.subtotal))}
+              </span>
             </li>
           ))}
         </ul>
@@ -99,25 +157,37 @@ function KartuReservasi({ r, bisaDibatalkan }: { r: ReservasiLengkap; bisaDibata
 
       {r.catatan && (
         <p className="mt-3 text-sm text-neutral-600">
-          <span className="font-semibold text-neutral-700">Catatan reservasi:</span> {r.catatan}
+          <span className="font-semibold text-neutral-700">
+            Catatan reservasi:
+          </span>{" "}
+          {r.catatan}
         </p>
       )}
 
       <footer className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-amber-100 pt-4">
         <p className="text-sm text-neutral-500">
           Total{" "}
-          <span className={`${fontJudul} text-xl font-extrabold tabular-nums text-neutral-900`}>
+          <span
+            className={`${fontJudul} text-xl font-extrabold tabular-nums text-neutral-900`}
+          >
             {rupiah.format(Number(r.totalBayar))}
           </span>
         </p>
-        {bisaDibatalkan && <CancelReservationButton reservasiId={r.id} />}
+
+        {/* Komponen Interaktif: Tambah Menu & Batalkan (No-Cancel) */}
+        <AksiReservasiPelanggan
+          kodeBooking={r.kodeBooking}
+          statusPembayaran={r.statusPembayaran}
+          statusReservasi={r.statusReservasi}
+          daftarMenu={daftarMenu}
+        />
       </footer>
     </article>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Data                                                                      */
+/*  Data Fetching                                                             */
 /* -------------------------------------------------------------------------- */
 
 function ambilReservasi(userId: string) {
@@ -125,7 +195,7 @@ function ambilReservasi(userId: string) {
     where: { userId },
     orderBy: [{ tanggal: "desc" }, { jamMulai: "desc" }],
     include: {
-      meja: { select: { nomorMeja: true, lokasiArea: true } },
+      meja: { select: { nomorMeja: true, lokasiArea: true, ruangan: true } },
       detailMenu: {
         orderBy: { createdAt: "asc" },
         include: { menu: { select: { namaMenu: true } } },
@@ -134,25 +204,47 @@ function ambilReservasi(userId: string) {
   });
 }
 
+function ambilDaftarMenu() {
+  return prisma.menu.findMany({
+    where: { statusKetersediaan: true },
+    select: { id: true, namaMenu: true, harga: true },
+    orderBy: { namaMenu: "asc" },
+  });
+}
+
 /* -------------------------------------------------------------------------- */
-/*  Konten (async) — dibungkus Suspense karena membaca cookie & database      */
+/*  Konten Dashboard                                                          */
 /* -------------------------------------------------------------------------- */
 
 async function KontenDashboard() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?callbackUrl=%2Fdashboard");
 
-  const semua = await ambilReservasi(user.userId);
+  const [semua, menuDb] = await Promise.all([
+    ambilReservasi(user.userId),
+    ambilDaftarMenu(),
+  ]);
+
+  const daftarMenu: MenuOption[] = menuDb.map((m) => ({
+    id: m.id,
+    namaMenu: m.namaMenu,
+    harga: Number(m.harga),
+  }));
+
   const hariIni = hariIniWIB();
-  const tanggalStr = (r: ReservasiLengkap) => r.tanggal.toISOString().slice(0, 10);
+  const tanggalStr = (r: ReservasiLengkap) =>
+    r.tanggal instanceof Date
+      ? r.tanggal.toISOString().slice(0, 10)
+      : String(r.tanggal).slice(0, 10);
+
   const aktif = (r: ReservasiLengkap) =>
-    r.statusReservasi === "MENUNGGU_KONFIRMASI" || r.statusReservasi === "DIKONFIRMASI";
+    r.statusReservasi === "MENUNGGU_KONFIRMASI" ||
+    r.statusReservasi === "DIKONFIRMASI";
 
-  // Akan datang: masih aktif & tanggalnya hari ini atau setelahnya (urut terdekat dulu)
-  const akanDatang = semua.filter((r) => aktif(r) && tanggalStr(r) >= hariIni).reverse();
+  const akanDatang = semua
+    .filter((r) => aktif(r) && tanggalStr(r) >= hariIni)
+    .reverse();
   const riwayat = semua.filter((r) => !(aktif(r) && tanggalStr(r) >= hariIni));
-
-  const bisaDibatalkan = (r: ReservasiLengkap) => aktif(r) && r.statusPembayaran === "BELUM_BAYAR";
 
   return (
     <>
@@ -169,17 +261,29 @@ async function KontenDashboard() {
 
       {semua.length === 0 ? (
         <div className="mt-10 rounded-3xl border border-dashed border-amber-300 bg-white px-6 py-14 text-center">
-          <span aria-hidden className="text-4xl">🍽️</span>
-          <p className={`${fontJudul} mt-3 text-xl font-bold text-neutral-900`}>Anda belum punya reservasi</p>
-          <p className="mt-1 text-sm text-neutral-500">Pilih tanggal, meja, dan menu favorit Anda untuk memulai.</p>
-          <Link href="/reservasi" className={`${tombolOranye} mt-5 inline-block`}>
+          <span aria-hidden className="text-4xl">
+            🍽️
+          </span>
+          <p className={`${fontJudul} mt-3 text-xl font-bold text-neutral-900`}>
+            Anda belum punya reservasi
+          </p>
+          <p className="mt-1 text-sm text-neutral-500">
+            Pilih tanggal, meja, dan menu favorit Anda untuk memulai.
+          </p>
+          <Link
+            href="/reservasi"
+            className={`${tombolOranye} mt-5 inline-block`}
+          >
             Reservasi sekarang
           </Link>
         </div>
       ) : (
         <div className="mt-10 space-y-12">
           <section aria-labelledby="judul-akan-datang">
-            <h2 id="judul-akan-datang" className={`${fontJudul} mb-4 text-2xl font-bold text-neutral-900`}>
+            <h2
+              id="judul-akan-datang"
+              className={`${fontJudul} mb-4 text-2xl font-bold text-neutral-900`}
+            >
               Akan datang ({akanDatang.length})
             </h2>
             {akanDatang.length === 0 ? (
@@ -189,7 +293,7 @@ async function KontenDashboard() {
             ) : (
               <div className="space-y-4">
                 {akanDatang.map((r) => (
-                  <KartuReservasi key={r.id} r={r} bisaDibatalkan={bisaDibatalkan(r)} />
+                  <KartuReservasi key={r.id} r={r} daftarMenu={daftarMenu} />
                 ))}
               </div>
             )}
@@ -197,12 +301,15 @@ async function KontenDashboard() {
 
           {riwayat.length > 0 && (
             <section aria-labelledby="judul-riwayat">
-              <h2 id="judul-riwayat" className={`${fontJudul} mb-4 text-2xl font-bold text-neutral-900`}>
+              <h2
+                id="judul-riwayat"
+                className={`${fontJudul} mb-4 text-2xl font-bold text-neutral-900`}
+              >
                 Riwayat ({riwayat.length})
               </h2>
               <div className="space-y-4">
                 {riwayat.map((r) => (
-                  <KartuReservasi key={r.id} r={r} bisaDibatalkan={false} />
+                  <KartuReservasi key={r.id} r={r} daftarMenu={daftarMenu} />
                 ))}
               </div>
             </section>
@@ -214,7 +321,7 @@ async function KontenDashboard() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Halaman                                                                   */
+/*  Halaman Export                                                            */
 /* -------------------------------------------------------------------------- */
 
 export default function DashboardPage() {
@@ -225,7 +332,11 @@ export default function DashboardPage() {
       kembali={{ href: "/", label: "Kembali ke Beranda" }}
     >
       <div className="max-w-3xl">
-        <Suspense fallback={<p className="text-sm text-neutral-500">Memuat reservasi Anda…</p>}>
+        <Suspense
+          fallback={
+            <p className="text-sm text-neutral-500">Memuat reservasi Anda…</p>
+          }
+        >
           <KontenDashboard />
         </Suspense>
       </div>

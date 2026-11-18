@@ -1,94 +1,127 @@
+// middleware.ts (Proteksi Route Server-Side Next.js - Elevenicious)
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
 const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback_secret_tim11_resto_key_default",
+  process.env.JWT_SECRET || "kunci_rahasia_super_aman_projek_resto_2026",
 );
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const token = request.cookies.get("auth_token")?.value;
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const token = req.cookies.get("auth_token")?.value;
 
-  // Tentukan apakah rute ini membutuhkan proteksi
+  // ============================================================================
+  // 1. RUTE PUBLIK BEBAS AKSES (TANPA PERLU LOGIN)
+  // - Halaman Utama: '/'
+  // - Reservasi Meja: '/reservasi'
+  // - Lacak Pesanan / Kode Booking: '/reservasi/:kode' (e.g. /reservasi/ELV-12345)
+  // - Katalog Menu: '/menu'
+  // - Autentikasi: '/login', '/register', '/unauthorized'
+  // - API Pembuatan Reservasi & Cek Ketersediaan: '/api/reservasi'
+  // - API Menu Publik: '/api/menu'
+  // ============================================================================
+  const isPublicRoute =
+    pathname === "/" ||
+    pathname.startsWith("/reservasi") ||
+    pathname.startsWith("/menu") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/unauthorized") ||
+    pathname.startsWith("/api/reservasi") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/menu") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/assets") ||
+    pathname.includes(".");
+
+  // Kecualikan jika rute secara eksplisit mengarah ke panel admin atau staff
   const isAdminRoute =
     pathname.startsWith("/admin") || pathname.startsWith("/api/admin");
-  const isStafRoute =
-    pathname.startsWith("/staff") || pathname.startsWith("/api/staff");
+  const isStaffRoute =
+    pathname.startsWith("/staff") ||
+    pathname.startsWith("/staf") ||
+    pathname.startsWith("/api/staff") ||
+    pathname.startsWith("/api/staf");
 
-  if (!isAdminRoute && !isStafRoute) {
+  if (isPublicRoute && !isAdminRoute && !isStaffRoute) {
     return NextResponse.next();
   }
 
-  // 1. Cek keberadaan token
+  // Jika bukan rute yang membutuhkan hak istimewa (admin/staff), loloskan
+  if (!isAdminRoute && !isStaffRoute) {
+    return NextResponse.next();
+  }
+
+  // ============================================================================
+  // 2. CEK TOKEN JWT UNTUK RUTE TERPROTEKSI (ADMIN & STAFF)
+  // ============================================================================
   if (!token) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         {
           success: false,
-          message: "Akses ditolak: Silakan login terlebih dahulu",
+          error: "Akses ditolak: Silakan login terlebih dahulu",
         },
         { status: 401 },
       );
     }
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. Verifikasi Token & Cek Role
+  // ============================================================================
+  // 3. VERIFIKASI TOKEN JWT & ROLE
+  // ============================================================================
   try {
     const { payload } = await jwtVerify(token, SECRET_KEY);
-    const userRole = payload.role as string;
+    const userRole = ((payload.role as string) || "").toUpperCase();
 
-    // Proteksi Rute ADMIN: Hanya role 'ADMIN' yang diizinkan
+    // Proteksi Route Admin: Khusus Role ADMIN
     if (isAdminRoute && userRole !== "ADMIN") {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
-          { success: false, message: "Akses terlarang: Khusus Administrator" },
+          { success: false, error: "Akses ditolak: Khusus Administrator" },
           { status: 403 },
         );
       }
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
-    // Proteksi Rute STAF: Diizinkan untuk 'STAF' dan 'ADMIN'
-    if (isStafRoute && userRole !== "STAF" && userRole !== "ADMIN") {
+    // Proteksi Route Staff: Khusus Role STAF atau ADMIN
+    if (isStaffRoute && userRole !== "STAF" && userRole !== "ADMIN") {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json(
-          { success: false, message: "Akses terlarang: Khusus Staf & Admin" },
+          { success: false, error: "Akses ditolak: Khusus Staf Restoran" },
           { status: 403 },
         );
       }
-      return NextResponse.redirect(new URL("/unauthorized", request.url));
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
-    // Tambahkan header user untuk diakses downstream handlers jika diperlukan
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set("x-user-id", payload.userId as string);
-    requestHeaders.set("x-user-role", userRole);
-
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    });
-  } catch (error) {
-    // Token tidak valid atau expired
+    return NextResponse.next();
+  } catch {
+    // Token tidak valid atau sudah kedaluwarsa
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
-        { success: false, message: "Sesi berakhir, silakan login ulang" },
+        { success: false, error: "Sesi kedaluwarsa, silakan login kembali" },
         { status: 401 },
       );
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 }
 
-// Konfigurasi matcher rute yang diproteksi
 export const config = {
   matcher: [
     "/admin/:path*",
     "/staff/:path*",
+    "/staf/:path*",
     "/api/admin/:path*",
     "/api/staff/:path*",
+    "/api/staf/:path*",
   ],
 };

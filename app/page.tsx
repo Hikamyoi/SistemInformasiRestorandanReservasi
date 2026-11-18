@@ -11,6 +11,12 @@ import {
   MenuTabs,
   type ItemMenu,
 } from "@/components/landing/MenuSections";
+import {
+  HeroSlider,
+  RevealSection,
+  GaleriRuangan,
+  type SlideMakanan,
+} from "@/components/landing/BerandaInteraktif";
 
 const baloo = Baloo_2({
   subsets: ["latin"],
@@ -28,12 +34,35 @@ const tombolOranye =
   "rounded-full bg-amber-500 px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_20px_-8px_rgba(245,158,11,0.7)] transition-colors hover:bg-amber-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2";
 
 const LAYANAN = [
-  { ikon: "🗓️", nama: "Reservasi Online" },
+  { ikon: "🗓️", nama: "Reservasi Tanpa Login" },
   { ikon: "🍽️", nama: "Pre-order Menu" },
-  { ikon: "🪑", nama: "Pilih Area Duduk" },
-  { ikon: "🔔", nama: "Notifikasi Status" },
-  { ikon: "📋", nama: "Pantau di Dashboard" },
-  { ikon: "↩️", nama: "Pembatalan Mudah" },
+  { ikon: "🪑", nama: "Denah Meja Interaktif" },
+  { ikon: "➕", nama: "Add-On Pesanan Live" },
+  { ikon: "🧾", nama: "Struk Digital LUNAS" },
+  { ikon: "🌿", nama: "Indoor & Outdoor Area" },
+];
+
+const KEUNGGULAN_RESTO = [
+  {
+    ikon: "🪑",
+    judul: "Pilih Posisi & View Meja",
+    ket: "Tentukan sendiri kursi di Indoor Non-Smoking, VIP Room, atau Teras Outdoor Smoking via denah interaktif.",
+  },
+  {
+    ikon: "⚡",
+    judul: "Checkout Instan Tanpa Login",
+    ket: "Tamu bisa langsung booking meja, bayar sekali jalan berstatus LUNAS, dan langsung mendapat kode booking.",
+  },
+  {
+    ikon: "🔥",
+    judul: "Pre-Order Disajikan Hangat",
+    ket: "Pesan menu saat reservasi supaya hidangan mulai dimasak menjelang jam kedatangan Anda.",
+  },
+  {
+    ikon: "➕",
+    judul: "Fleksibel Add-On Menu",
+    ket: "Ingin nambah hidangan di tempat? Masukkan menu tambahan lewat halaman struk kode booking Anda.",
+  },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -58,7 +87,7 @@ async function IsiHalaman() {
     include: { menus: { orderBy: { namaMenu: "asc" } } },
   });
 
-  const items: ItemMenu[] = kategori.flatMap((k) =>
+  const items: (ItemMenu & { isPopuler: boolean })[] = kategori.flatMap((k) =>
     k.menus.map((m) => ({
       id: m.id,
       nama: m.namaMenu,
@@ -67,87 +96,144 @@ async function IsiHalaman() {
       deskripsi: m.deskripsi,
       tersedia: m.statusKetersediaan,
       kategori: k.namaKategori,
+      isPopuler: m.isPopuler,
     })),
   );
   const namaKategori = kategori
     .filter((k) => k.menus.length > 0)
     .map((k) => k.namaKategori);
 
-  const populer = items
-    .filter((i) => i.tersedia)
-    .sort((a, b) => Number(Boolean(b.foto)) - Number(Boolean(a.foto)))
-    .slice(0, 8);
+  // Prioritaskan menu yang ditandai isPopuler: true
+  const menuPopulerUtama = items.filter((i) => i.tersedia && i.isPopuler);
+  const populer: ItemMenu[] = (
+    menuPopulerUtama.length > 0
+      ? menuPopulerUtama
+      : items.filter((i) => i.tersedia)
+  ).slice(0, 8);
 
-  const berfoto = items.filter((i) => i.foto);
+  const berfoto = items.filter((i) => i.tersedia && i.foto);
   const hero = berfoto[0] ?? items[0];
   const cta = berfoto[1] ?? hero;
 
+  // 3-4 slide makanan unggulan untuk Hero Slider (prioritaskan menu populer berfoto)
+  const kandidatMakanan = [
+    ...menuPopulerUtama.filter((i) => i.foto),
+    ...berfoto.filter((b) => !menuPopulerUtama.some((p) => p.id === b.id)),
+  ].slice(0, 4);
+
+  const slidesMakanan: SlideMakanan[] = (
+    kandidatMakanan.length > 0 ? kandidatMakanan : items.slice(0, 3)
+  ).map((m) => ({
+    id: m.id,
+    nama: m.nama,
+    kategori: m.kategori,
+    harga: m.harga,
+    deskripsi:
+      m.deskripsi ||
+      "Hidangan spesial Elevenicious yang dimasak segar dengan bahan pilihan terbaik.",
+    foto: m.foto,
+  }));
+
   return (
     <>
-      {/* ------------------------------ Hero ------------------------------ */}
-      <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 pb-10 pt-8 lg:grid-cols-2 lg:pt-14">
-        <div>
-          <h1
-            className={`${judul} text-4xl font-extrabold leading-[1.15] text-neutral-900 sm:text-5xl lg:text-6xl`}
-          >
-            Kami Sajikan Rasa yang Anda Suka <span aria-hidden>😋</span>
-          </h1>
-          <p className="mt-4 max-w-md text-sm leading-7 text-neutral-500">
-            Pesan meja dan menu favorit dari rumah, lalu datang tanpa antre.
-            Pilih jadwal dan tempat duduk, kami siapkan sisanya. Buka setiap
-            hari pukul {JAM_BUKA}–{JAM_TUTUP} WIB.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <a href="#menu" className={tombolOranye}>
-              Lihat Menu
-            </a>
-          </div>
-        </div>
+      {/* ------------------------------ Hero Slider Makanan ------------------------------ */}
+      <HeroSlider
+        jamBuka={JAM_BUKA}
+        jamTutup={JAM_TUTUP}
+        namaKategori={namaKategori}
+        slidesMakanan={slidesMakanan}
+        judulClassName={judul}
+        tombolClassName={tombolOranye}
+      />
 
-        {/* Kolom Kanan: Piring Hero & Kategori Menu (Bebas Tabrakan di HP) */}
-        <div className="relative mx-auto w-full max-w-md lg:max-w-none">
-          {/* Background dekoratif diberi pointer-events-none agar tidak menyerap klik/sentuhan */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-[6%] rounded-full bg-amber-100/70"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-2 top-2 h-24 w-24 bg-[radial-gradient(#f59e0b66_1.5px,transparent_1.5px)] [background-size:10px_10px]"
-          />
-
-          {/* Gambar Piring */}
-          <div className="relative z-10">
-            <Piring
-              foto={hero?.foto}
-              nama={hero?.nama ?? "Hidangan"}
-              className="relative mx-auto w-[78%]"
-            />
+      {/* -------------------- Profil Restoran, Galeri & Keunggulan -------------------- */}
+      <section
+        id="profil"
+        className="mx-auto max-w-6xl scroll-mt-10 px-5 py-12"
+      >
+        <RevealSection>
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <span className="rounded-full bg-amber-100 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-800">
+                Profil Restoran &amp; Suasana Ruangan
+              </span>
+              <h2
+                className={`${judul} mt-3 text-3xl font-extrabold text-neutral-900 sm:text-4xl`}
+              >
+                Dua Zona Nyaman: Indoor Non-Smoking &amp; Outdoor Smoking
+              </h2>
+            </div>
+            <p className="max-w-md text-xs leading-6 text-neutral-500 sm:text-sm">
+              Elevenicious menghadirkan pengalaman bersantap Nusantara modern
+              dengan pilihan area duduk sesuai kenyamanan Anda setiap hari pukul{" "}
+              {JAM_BUKA}–{JAM_TUTUP} WIB.
+            </p>
           </div>
 
-          {/* Tombol Kategori: Diberi z-20 & mt-10 agar tidak overlap dan selalu bisa dipencet di HP */}
-          {namaKategori.length > 0 && (
-            <ul className="relative z-20 mt-10 flex flex-wrap justify-center gap-2.5 lg:absolute lg:right-0 lg:top-1/2 lg:mt-0 lg:-translate-y-1/2 lg:flex-col lg:flex-nowrap">
-              {namaKategori.slice(0, 5).map((nama) => (
-                <li key={nama}>
-                  <a
-                    href="#menu"
-                    className="flex items-center gap-2 rounded-full bg-white py-2 pl-2 pr-4 text-xs font-semibold text-neutral-700 shadow-[0_8px_20px_-10px_rgba(120,80,0,0.35)] ring-1 ring-amber-100 transition-all hover:text-amber-600 active:scale-95"
-                  >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-white">
-                      {nama.charAt(0).toUpperCase()}
-                    </span>
-                    <span>{nama}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+          {/* Info Zona Indoor Non-Smoking & Outdoor Smoking */}
+          <GaleriRuangan judulClassName={judul} />
+
+          {/* 4 Kartu Keunggulan Restoran */}
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {KEUNGGULAN_RESTO.map((k) => (
+              <div
+                key={k.judul}
+                className="rounded-3xl bg-white p-6 shadow-[0_10px_28px_-15px_rgba(120,80,0,0.18)] ring-1 ring-amber-100 transition-transform duration-200 hover:-translate-y-1"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-xl">
+                  {k.ikon}
+                </span>
+                <h3
+                  className={`${judul} mt-4 text-lg font-bold text-neutral-900`}
+                >
+                  {k.judul}
+                </h3>
+                <p className="mt-2 text-xs leading-5 text-neutral-500">
+                  {k.ket}
+                </p>
+              </div>
+            ))}
+          </div>
+        </RevealSection>
       </section>
 
-      {/* -------------------------- Menu Populer -------------------------- */}
-      <PopularDishes items={populer} />
+      {/* -------------------------- Menu Populer (isPopuler: true) -------------------------- */}
+      <RevealSection>
+        <PopularDishes items={populer} />
+      </RevealSection>
+
+      {/* -------------------------- Banner Promo / Event Spesial -------------------------- */}
+      <section className="mx-auto max-w-6xl px-5 py-6">
+        <RevealSection>
+          <div className="rounded-[2rem] bg-gradient-to-r from-neutral-900 via-stone-900 to-amber-950 p-7 text-white shadow-lg sm:p-10">
+            <div className="grid items-center gap-6 md:grid-cols-[1.5fr_auto]">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3.5 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/30">
+                  🎉 Event &amp; Promo Spesial Elevenicious
+                </span>
+                <h2
+                  className={`${judul} mt-3 text-2xl font-extrabold leading-tight sm:text-3xl`}
+                >
+                  Paket Jamuan Keluarga &amp; Private VIP Senja — Hemat 15%
+                  Pre-Order
+                </h2>
+                <p className="mt-2 max-w-2xl text-xs leading-6 text-neutral-300 sm:text-sm">
+                  Rayakan momen spesial bersama keluarga atau rekan kerja di
+                  Ruang VIP Private (VIP-01 kapasitas 8 kursi) setiap
+                  Jumat–Minggu pukul 17:00–21:00 WIB dengan hidangan pre-order
+                  siap saji.
+                </p>
+              </div>
+              <Link
+                href="/reservasi"
+                className={`${tombolOranye} shrink-0 text-center`}
+              >
+                Reservasi Event Sekarang
+              </Link>
+            </div>
+          </div>
+        </RevealSection>
+      </section>
 
       {/* ----------------------------- Layanan ---------------------------- */}
       <section
@@ -184,8 +270,8 @@ async function IsiHalaman() {
             Lebih dari Sekadar Tempat Makan
           </h2>
           <p className="mt-4 max-w-md text-sm leading-7 text-neutral-500">
-            Dari memilih meja sampai memantau status reservasi, semuanya bisa
-            Anda atur sendiri lewat satu akun.
+            Dari memilih posisi meja lewat denah sampai menambah pesanan secara
+            fleksibel, semua serba praktis di Elevenicious.
           </p>
           <ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4">
             {LAYANAN.map((l) => (
@@ -225,8 +311,8 @@ async function IsiHalaman() {
               Ada Rencana Makan Di Elevenicious Hari Ini? Reservasi Meja Anda
             </h2>
             <p className="mt-4 max-w-md text-sm leading-7 text-neutral-500">
-              Amankan meja favorit Anda sekarang. Hanya butuh beberapa menit,
-              dan status reservasi bisa dipantau kapan saja.
+              Amankan meja favorit Anda sekarang. Hanya butuh beberapa menit
+              tanpa harus login terlebih dahulu.
             </p>
             <Link
               href="/reservasi"
@@ -261,7 +347,7 @@ async function IsiHalaman() {
           <h2
             className={`${judul} mt-3 text-3xl font-extrabold text-neutral-900 sm:text-4xl`}
           >
-            Kunjungi Restoran & Terhubung Bersama Kami
+            Kunjungi Restoran &amp; Terhubung Bersama Kami
           </h2>
           <p className="mx-auto mt-3 max-w-lg text-sm text-neutral-500">
             Ingin memesan meja khusus rombongan, konsultasi menu spesial, atau
@@ -305,10 +391,10 @@ async function IsiHalaman() {
               <h3
                 className={`${judul} mt-4 text-lg font-bold text-neutral-900`}
               >
-                WhatsApp & Telp
+                WhatsApp &amp; Telp
               </h3>
               <p className="mt-2 text-xs text-neutral-500">
-                Respon cepat reservasi & pertanyaan:
+                Respon cepat reservasi &amp; pertanyaan:
               </p>
               <p className="mt-1 text-sm font-bold text-neutral-800">
                 +62 812-3456-7890
@@ -337,7 +423,7 @@ async function IsiHalaman() {
                 Email Resmi
               </h3>
               <p className="mt-2 text-xs text-neutral-500">
-                Layanan kerjasama & masukan pelanggan:
+                Layanan kerjasama &amp; masukan pelanggan:
               </p>
               <p className="mt-1 text-sm font-bold text-neutral-800">
                 halo@elevenicious.com
@@ -364,7 +450,7 @@ async function IsiHalaman() {
                 Jam Buka
               </h3>
               <p className="mt-2 text-xs text-neutral-500">
-                Dapur & pelayanan kami buka:
+                Dapur &amp; pelayanan kami buka:
               </p>
               <p className="mt-1 text-sm font-bold text-neutral-800">
                 Setiap Hari
@@ -410,7 +496,7 @@ export default function LandingPage() {
 
       <footer className="mt-12 border-t border-amber-100 bg-white">
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 text-sm sm:grid-cols-3">
-          {/* Logo & Brand Footer Elevenicious */}
+          {/* Logo & Brand Footer Elevenicious (Tidak Diubah) */}
           <div>
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-2xl bg-amber-500 p-1.5 shadow-sm">

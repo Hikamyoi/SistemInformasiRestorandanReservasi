@@ -1,6 +1,6 @@
 // ==============================================================================
-// SISTEM INFORMASI RESTORAN DAN RESERVASI (PROJEK AKHIR TIM 11)
-// Framework: Next.js (App Router) + Supabase (PostgreSQL) + Prisma ORM
+// SISTEM INFORMASI RESTORAN DAN RESERVASI - ELEVENICIOUS
+// Framework: Next.js (App Router) + PostgreSQL + Prisma ORM
 // ==============================================================================
 
 generator client {
@@ -10,7 +10,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // Wajib untuk koneksi migrasi Supabase
+  directUrl = env("DIRECT_URL")
 }
 
 // ==============================================================================
@@ -36,14 +36,8 @@ enum StatusReservasi {
   DIBATALKAN
 }
 
-enum StatusPembayaran {
-  BELUM_BAYAR
-  LUNAS
-  DIBATALKAN
-}
-
 // ==============================================================================
-// 1. MODEL USER / PROFILE
+// 1. MODEL USER
 // ==============================================================================
 model User {
   id            String    @id @default(uuid()) @db.Uuid
@@ -70,7 +64,11 @@ model Meja {
   nomorMeja   String      @unique @map("nomor_meja") @db.VarChar(20)
   kapasitas   Int         @db.Integer
   status      StatusMeja  @default(TERSEDIA)
-  lokasiArea  String      @default("Indoor") @map("lokasi_area") @db.VarChar(50)
+  ruangan     String      @default("INDOOR_NON_SMOKING") @map("ruangan") @db.VarChar(50) // INDOOR_NON_SMOKING | OUTDOOR_SMOKING | VIP_NON_SMOKING
+  viewMeja    String?     @map("view_meja") @db.VarChar(150) // Contoh: "Dekat Jendela (Street View)", "Dekat Taman", "Tengah Ruangan"
+  posisiX     Int?        @map("posisi_x") @db.Integer // Koordinat X denah visual restoran
+  posisiY     Int?        @map("posisi_y") @db.Integer // Koordinat Y denah visual restoran
+  lokasiArea  String?     @default("Indoor") @map("lokasi_area") @db.VarChar(50)
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -107,6 +105,7 @@ model Menu {
   fotoUrl             String?       @map("foto_url") @db.Text
   deskripsi           String?       @db.Text
   statusKetersediaan  Boolean       @default(true) @map("status_ketersediaan")
+  isPopuler           Boolean       @default(false) @map("is_populer")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
 
@@ -114,7 +113,7 @@ model Menu {
   kategori            KategoriMenu  @relation(fields: [kategoriId], references: [id], onDelete: Restrict)
   detailReservasi     DetailReservasiMenu[]
 
-  // Indexing pencarian menu per kategori
+  // Indexing untuk pencarian cepat berdasarkan kategori
   @@index([kategoriId])
   @@map("menu")
 }
@@ -124,28 +123,32 @@ model Menu {
 // ==============================================================================
 model Reservasi {
   id                String            @id @default(uuid()) @db.Uuid
-  userId            String            @map("user_id") @db.Uuid
+  userId            String?           @map("user_id") @db.Uuid // Opsional untuk tamu / guest checkout
   mejaId            String            @map("meja_id") @db.Uuid
+  kodeBooking       String            @unique @map("kode_booking") @db.VarChar(50) // Kode unik tracking pesanan (e.g. ELV-20261113-XXXX)
+  namaPemesan       String            @map("nama_pemesan") @db.VarChar(150)
+  noHp              String            @map("no_hp") @db.VarChar(20)
   tanggal           DateTime          @db.Date
-  jamMulai          String            @map("jam_mulai") @db.VarChar(10) // Format: "12:00"
-  jamSelesai        String            @map("jam_selesai") @db.VarChar(10) // Format: "13:30"
+  jamMulai          DateTime          @map("jam_mulai") @db.Time(0)
+  jamSelesai        DateTime          @map("jam_selesai") @db.Time(0)
   jumlahTamu        Int               @map("jumlah_tamu") @db.Integer
   statusReservasi   StatusReservasi   @default(MENUNGGU_KONFIRMASI) @map("status_reservasi")
-  statusPembayaran  StatusPembayaran  @default(BELUM_BAYAR) @map("status_pembayaran")
-  totalBayar        Decimal           @default(0) @map("total_bayar") @db.Decimal(12, 2)
+  statusPembayaran  String            @default("BELUM_BAYAR") @map("status_pembayaran") @db.VarChar(50) // BELUM_BAYAR | LUNAS
+  totalBayar        Int               @default(0) @map("total_bayar") // Total kalkulasi pesanan menu dalam Rupiah
   catatan           String?           @db.Text
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
   // Relasi Foreign Keys
-  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   meja              Meja              @relation(fields: [mejaId], references: [id], onDelete: Restrict)
   detailMenu        DetailReservasiMenu[]
 
-  // Indexing untuk filter jadwal benturan, alokasi meja, dan riwayat pelanggan
+  // Indexing untuk filter jadwal, alokasi meja, dan riwayat pelanggan
   @@index([userId])
   @@index([mejaId, tanggal])
   @@index([statusReservasi])
+  @@index([kodeBooking])
   @@map("reservasi")
 }
 

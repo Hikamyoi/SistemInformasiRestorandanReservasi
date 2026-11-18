@@ -19,14 +19,27 @@ const rupiah = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 
-const formatTanggal = (d: Date) =>
-  d.toLocaleDateString("id-ID", {
+// Helper format Date ke jam "HH:mm" agar aman di-render React
+const formatJam = (jam: Date | string | null | undefined): string => {
+  if (!jam) return "--:--";
+  if (typeof jam === "string") return jam.slice(0, 5);
+  if (jam instanceof Date) {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(jam.getUTCHours())}:${pad(jam.getUTCMinutes())}`;
+  }
+  return String(jam);
+};
+
+const formatTanggal = (d: Date | string) => {
+  const dateObj = typeof d === "string" ? new Date(d) : d;
+  return dateObj.toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
+};
 
 const hariIniWIB = () =>
   new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
@@ -74,23 +87,32 @@ function KartuReservasiStaf({ r }: { r: ReservasiLengkap }) {
     STATUS_PEMBAYARAN[r.statusPembayaran as keyof typeof STATUS_PEMBAYARAN] ||
     STATUS_PEMBAYARAN.BELUM_BAYAR;
 
+  const namaPelanggan = r.namaPemesan || r.user?.nama || "Pelanggan Anonim";
+  const noKontak = r.noHp || r.user?.noHp;
+
   return (
     <article className="rounded-3xl bg-white p-5 shadow-[0_10px_30px_-15px_rgba(120,80,0,0.3)] sm:p-7">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h3 className={`${fontJudul} text-lg font-bold text-neutral-900`}>
-              {r.user?.nama || "Pelanggan Anonim"}
+              {namaPelanggan}
             </h3>
-            {r.user?.noHp && (
+            {r.kodeBooking && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 font-mono text-[11px] font-bold text-amber-800">
+                {r.kodeBooking}
+              </span>
+            )}
+            {noKontak && (
               <span className="text-xs font-medium text-neutral-500">
-                ({r.user.noHp})
+                ({noKontak})
               </span>
             )}
           </div>
           <p className="mt-0.5 text-sm text-neutral-500">
-            {formatTanggal(r.tanggal)} · {r.jamMulai}–{r.jamSelesai} · Meja{" "}
-            {r.meja.nomorMeja} ({r.meja.lokasiArea}) · {r.jumlahTamu} tamu
+            {formatTanggal(r.tanggal)} · {formatJam(r.jamMulai)}–
+            {formatJam(r.jamSelesai)} · Meja {r.meja.nomorMeja} (
+            {r.meja.ruangan || r.meja.lokasiArea}) · {r.jumlahTamu} tamu
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -159,7 +181,7 @@ function ambilSemuaReservasiStaf() {
     orderBy: [{ tanggal: "desc" }, { jamMulai: "asc" }],
     include: {
       user: { select: { nama: true, noHp: true, email: true } },
-      meja: { select: { nomorMeja: true, lokasiArea: true } },
+      meja: { select: { nomorMeja: true, lokasiArea: true, ruangan: true } },
       detailMenu: {
         orderBy: { createdAt: "asc" },
         include: { menu: { select: { namaMenu: true } } },
@@ -182,7 +204,9 @@ async function KontenDashboardStaf() {
   const semua = await ambilSemuaReservasiStaf();
   const hariIni = hariIniWIB();
   const tanggalStr = (r: ReservasiLengkap) =>
-    r.tanggal.toISOString().slice(0, 10);
+    r.tanggal instanceof Date
+      ? r.tanggal.toISOString().slice(0, 10)
+      : String(r.tanggal).slice(0, 10);
 
   // Filter reservasi hari ini & akan datang
   const reservasiHariIni = semua.filter((r) => tanggalStr(r) === hariIni);
@@ -194,7 +218,7 @@ async function KontenDashboardStaf() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-lg font-semibold text-neutral-900">
-            Panel Staf Restoran <span aria-hidden>🧑‍🍳</span>
+            Panel Staf Restoran <span aria-hidden></span>
           </p>
           <p className="text-sm text-neutral-500">Petugas: {user.nama}</p>
         </div>

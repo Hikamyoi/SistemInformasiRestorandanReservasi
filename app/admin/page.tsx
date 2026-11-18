@@ -8,6 +8,7 @@ import {
   UtensilsCrossed,
   LayoutGrid,
   Receipt,
+  FileSpreadsheet,
   Plus,
   Edit2,
   Trash2,
@@ -17,6 +18,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Crown,
 } from "lucide-react";
 
 const baloo = Baloo_2({
@@ -70,11 +72,32 @@ interface Meja {
   nomorMeja: string;
   kapasitas: number;
   status: "TERSEDIA" | "DIISI" | "DIBLOKIR";
+  ruangan?:
+    | "INDOOR_NON_SMOKING"
+    | "OUTDOOR_SMOKING"
+    | "VIP_NON_SMOKING"
+    | string;
+  viewMeja?: string | null;
   lokasiArea: string;
 }
 
+const DEFAULT_LOKASI_BY_RUANGAN: Record<string, string> = {
+  INDOOR_NON_SMOKING: "Indoor Hall Utama",
+  OUTDOOR_SMOKING: "Outdoor Garden Breeze",
+  VIP_NON_SMOKING: "Private VIP Room",
+};
+
+const LABEL_RUANGAN: Record<string, string> = {
+  INDOOR_NON_SMOKING: "Indoor (Non-Smoking)",
+  OUTDOOR_SMOKING: "Outdoor (Smoking)",
+  VIP_NON_SMOKING: "Private VIP (Non-Smoking)",
+};
+
 interface ReservasiItem {
   id: string;
+  kodeBooking?: string;
+  namaPemesan?: string;
+  noHp?: string;
   tanggal: string;
   jamMulai: string;
   jamSelesai: string;
@@ -85,17 +108,23 @@ interface ReservasiItem {
   catatan?: string | null;
   user?: {
     nama: string;
-    email: string;
-    noHp?: string;
-  };
+    email?: string;
+    noHp?: string | null;
+  } | null;
   meja?: {
     nomorMeja: string;
-    lokasiArea: string;
-  };
+    lokasiArea?: string | null;
+    ruangan?: string | null;
+  } | null;
 }
 
 const pesanError = (err: unknown) =>
   err instanceof Error ? err.message : "Terjadi kesalahan";
+
+const formatJamTampil = (val?: string | null) => {
+  if (!val) return "-";
+  return val.includes("T") ? val.slice(11, 16) : val.slice(0, 5);
+};
 
 /* --------------------------- Komponen kecil ------------------------------ */
 
@@ -304,7 +333,12 @@ export default function AdminDashboard() {
     nomorMeja: "",
     kapasitas: "4",
     status: "TERSEDIA" as "TERSEDIA" | "DIISI" | "DIBLOKIR",
-    lokasiArea: "Indoor",
+    ruangan: "INDOOR_NON_SMOKING" as
+      | "INDOOR_NON_SMOKING"
+      | "OUTDOOR_SMOKING"
+      | "VIP_NON_SMOKING",
+    lokasiArea: "Indoor Hall Utama",
+    viewMeja: "",
   });
 
   const showToast = (
@@ -349,7 +383,17 @@ export default function AdminDashboard() {
 
       if (resReservasi.ok) {
         const json = await resReservasi.json();
-        setReservasis(json.data || []);
+        const list = Array.isArray(json)
+          ? json
+          : json.data || json.reservasi || [];
+        setReservasis(list);
+      } else {
+        const errJson = await resReservasi.json().catch(() => ({}));
+        showToast(
+          errJson.error ||
+            `Gagal memuat data reservasi (HTTP ${resReservasi.status})`,
+          "error",
+        );
       }
     } catch (err) {
       console.error(err);
@@ -361,6 +405,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handle Logout
@@ -450,20 +495,55 @@ export default function AdminDashboard() {
       nomorMeja: "",
       kapasitas: "4",
       status: "TERSEDIA",
-      lokasiArea: "Indoor",
+      ruangan: "INDOOR_NON_SMOKING",
+      lokasiArea: "Indoor Hall Utama",
+      viewMeja: "",
     });
     setIsMejaModalOpen(true);
   };
 
   const handleOpenEditMeja = (meja: Meja) => {
     setEditingMeja(meja);
+    const ruanganAwal =
+      meja.ruangan === "OUTDOOR_SMOKING" ||
+      meja.ruangan === "VIP_NON_SMOKING" ||
+      meja.ruangan === "INDOOR_NON_SMOKING"
+        ? meja.ruangan
+        : "INDOOR_NON_SMOKING";
     setMejaForm({
       nomorMeja: meja.nomorMeja,
       kapasitas: String(meja.kapasitas),
       status: meja.status,
-      lokasiArea: meja.lokasiArea,
+      ruangan: ruanganAwal,
+      lokasiArea: meja.lokasiArea || DEFAULT_LOKASI_BY_RUANGAN[ruanganAwal],
+      viewMeja: meja.viewMeja || "",
     });
     setIsMejaModalOpen(true);
+  };
+
+  const handleUbahRuanganMeja = (
+    ruanganBaru: "INDOOR_NON_SMOKING" | "OUTDOOR_SMOKING" | "VIP_NON_SMOKING",
+  ) => {
+    const nilaiDefaultLama = Object.values(DEFAULT_LOKASI_BY_RUANGAN).concat([
+      "Indoor",
+      "Outdoor",
+      "",
+    ]);
+    const perluAutoLokasi = nilaiDefaultLama.includes(
+      mejaForm.lokasiArea.trim(),
+    );
+
+    setMejaForm({
+      ...mejaForm,
+      ruangan: ruanganBaru,
+      lokasiArea: perluAutoLokasi
+        ? DEFAULT_LOKASI_BY_RUANGAN[ruanganBaru]
+        : mejaForm.lokasiArea,
+      viewMeja:
+        ruanganBaru === "VIP_NON_SMOKING" && !mejaForm.viewMeja.trim()
+          ? "Private VIP Room (Eksklusif)"
+          : mejaForm.viewMeja,
+    });
   };
 
   const handleSubmitMeja = async (e: React.FormEvent) => {
@@ -473,6 +553,7 @@ export default function AdminDashboard() {
       const payload = {
         ...mejaForm,
         kapasitas: Number(mejaForm.kapasitas),
+        viewMeja: mejaForm.viewMeja.trim() || null,
       };
 
       const url = "/api/admin/meja";
@@ -486,7 +567,11 @@ export default function AdminDashboard() {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Gagal menyimpan data meja");
+      if (!res.ok) {
+        throw new Error(
+          json.message || json.error || "Gagal menyimpan data meja",
+        );
+      }
 
       showToast(
         editingMeja ? "Meja berhasil diupdate!" : "Meja berhasil ditambahkan!",
@@ -516,7 +601,7 @@ export default function AdminDashboard() {
   const filteredMenus = menus.filter(
     (m) =>
       m.namaMenu.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.kategori?.namaKategori
+      (m.kategori?.namaKategori || "")
         .toLowerCase()
         .includes(searchQuery.toLowerCase()),
   );
@@ -524,17 +609,27 @@ export default function AdminDashboard() {
   const filteredMejas = mejas.filter(
     (m) =>
       m.nomorMeja.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.lokasiArea.toLowerCase().includes(searchQuery.toLowerCase()),
+      (m.lokasiArea || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (LABEL_RUANGAN[m.ruangan || ""] || m.ruangan || "")
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()),
   );
 
-  const filteredReservasi = reservasis.filter(
-    (r) =>
-      (r.user?.nama || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (r.meja?.nomorMeja || "")
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      r.id.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const q = searchQuery.trim().toLowerCase();
+  const filteredReservasi = reservasis.filter((r) => {
+    if (!q) return true;
+    const namaTamu = (r.namaPemesan || r.user?.nama || "").toLowerCase();
+    const kode = (r.kodeBooking || "").toLowerCase();
+    const hp = (r.noHp || r.user?.noHp || "").toLowerCase();
+    const nomorMeja = (r.meja?.nomorMeja || "").toLowerCase();
+    return (
+      namaTamu.includes(q) ||
+      kode.includes(q) ||
+      hp.includes(q) ||
+      nomorMeja.includes(q) ||
+      r.id.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div
@@ -621,6 +716,15 @@ export default function AdminDashboard() {
           >
             Rekap Transaksi
           </NavButton>
+          <Link
+            href="/admin/laporan"
+            className="flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm font-semibold text-neutral-600 transition-colors hover:bg-amber-50 hover:text-neutral-900"
+          >
+            <span className="text-emerald-600">
+              <FileSpreadsheet className="h-4 w-4" />
+            </span>
+            <span>Laporan POS &amp; Excel</span>
+          </Link>
         </nav>
 
         {/* Profil Admin & Tombol Logout */}
@@ -720,7 +824,7 @@ export default function AdminDashboard() {
               <table className="w-full text-left text-xs">
                 <thead className={thead}>
                   <tr>
-                    <th className={`${sel} font-bold`}>Foto & Menu</th>
+                    <th className={`${sel} font-bold`}>Foto &amp; Menu</th>
                     <th className={`${sel} font-bold`}>Kategori</th>
                     <th className={`${sel} font-bold`}>Harga</th>
                     <th className={`${sel} font-bold`}>Status</th>
@@ -849,7 +953,9 @@ export default function AdminDashboard() {
                   <tr>
                     <th className={`${sel} font-bold`}>Nomor Meja</th>
                     <th className={`${sel} font-bold`}>Kapasitas</th>
-                    <th className={`${sel} font-bold`}>Lokasi Area</th>
+                    <th className={`${sel} font-bold`}>
+                      Zona Ruangan &amp; Area
+                    </th>
                     <th className={`${sel} font-bold`}>Status Meja</th>
                     <th className={`${sel} text-right font-bold`}>Aksi</th>
                   </tr>
@@ -877,7 +983,15 @@ export default function AdminDashboard() {
                         <td
                           className={`${sel} ${fontJudul} text-base font-bold`}
                         >
-                          {meja.nomorMeja}
+                          <span className="inline-flex items-center gap-1.5">
+                            <span>{meja.nomorMeja}</span>
+                            {meja.ruangan === "VIP_NON_SMOKING" && (
+                              <Crown
+                                className="h-4 w-4 text-amber-500"
+                                aria-label="VIP"
+                              />
+                            )}
+                          </span>
                         </td>
                         <td className={`${sel} text-neutral-600`}>
                           <span className="font-semibold text-neutral-900">
@@ -886,7 +1000,26 @@ export default function AdminDashboard() {
                           Orang
                         </td>
                         <td className={`${sel} text-neutral-600`}>
-                          {meja.lokasiArea}
+                          <div className="flex flex-col gap-1">
+                            <Lencana
+                              kelas={
+                                meja.ruangan === "VIP_NON_SMOKING"
+                                  ? WARNA_AMBER
+                                  : meja.ruangan === "OUTDOOR_SMOKING"
+                                    ? WARNA_HIJAU
+                                    : WARNA_NETRAL
+                              }
+                            >
+                              {LABEL_RUANGAN[
+                                meja.ruangan || "INDOOR_NON_SMOKING"
+                              ] ||
+                                meja.ruangan ||
+                                "Indoor (Non-Smoking)"}
+                            </Lencana>
+                            <span className="text-[11px] text-neutral-500">
+                              {meja.viewMeja || meja.lokasiArea}
+                            </span>
+                          </div>
                         </td>
                         <td className={sel}>
                           <Lencana
@@ -938,21 +1071,30 @@ export default function AdminDashboard() {
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
               <div>
                 <h3 className={`${fontJudul} text-xl font-bold`}>
-                  Riwayat & Status Reservasi Masuk
+                  Riwayat &amp; Status Reservasi Masuk
                 </h3>
                 <p className="mt-1 text-xs text-neutral-500">
                   Data transaksi pesanan meja dan pra-pesan makanan yang
                   terhubung langsung ke tabel database Prisma.
                 </p>
               </div>
-              <div className="w-full sm:w-64">
-                <input
-                  type="text"
-                  placeholder="Cari tamu / meja / ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={inputClass}
-                />
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <div className="w-full sm:w-64">
+                  <input
+                    type="text"
+                    placeholder="Cari tamu / kode / meja..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <Link
+                  href="/admin/laporan"
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>Laporan POS &amp; Excel</span>
+                </Link>
               </div>
             </div>
 
@@ -967,67 +1109,80 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {filteredReservasi.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-100 bg-[#FFFBF2] p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-amber-700">
-                          {item.id.slice(0, 8).toUpperCase()}
-                        </span>
-                        <span className="text-xs text-neutral-400">•</span>
-                        <span className="text-xs font-semibold text-neutral-900">
-                          {item.user?.nama || "Pelanggan Anonim"}
-                        </span>
-                        {item.user?.noHp && (
-                          <span className="text-[11px] text-neutral-500">
-                            ({item.user.noHp})
+                {filteredReservasi.map((item) => {
+                  const namaPemesan =
+                    item.namaPemesan || item.user?.nama || "Pelanggan Anonim";
+                  const noHp = item.noHp || item.user?.noHp;
+                  const kodeTampil =
+                    item.kodeBooking || item.id.slice(0, 8).toUpperCase();
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex flex-col justify-between gap-3 rounded-2xl border border-amber-100 bg-[#FFFBF2] p-4 transition-shadow hover:shadow-sm sm:flex-row sm:items-center"
+                    >
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/reservasi/${kodeTampil}`}
+                            className="font-mono text-xs font-bold text-amber-700 hover:underline"
+                          >
+                            {kodeTampil}
+                          </Link>
+                          <span className="text-xs text-neutral-400">•</span>
+                          <span className="text-xs font-semibold text-neutral-900">
+                            {namaPemesan}
                           </span>
-                        )}
+                          {noHp && (
+                            <span className="text-[11px] text-neutral-500">
+                              ({noHp})
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-neutral-500">
+                          Meja {item.meja?.nomorMeja || "-"} (
+                          {item.meja?.lokasiArea || item.meja?.ruangan || "-"})
+                          {" | "}
+                          {new Date(item.tanggal).toLocaleDateString("id-ID", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}{" "}
+                          ({formatJamTampil(item.jamMulai)} -{" "}
+                          {formatJamTampil(item.jamSelesai)} WIB) •{" "}
+                          {item.jumlahTamu} Tamu
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-neutral-500">
-                        Meja {item.meja?.nomorMeja || "-"} (
-                        {item.meja?.lokasiArea || "-"}) |{" "}
-                        {new Date(item.tanggal).toLocaleDateString("id-ID", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}{" "}
-                        ({item.jamMulai} - {item.jamSelesai}) •{" "}
-                        {item.jumlahTamu} Tamu
-                      </p>
+                      <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        <span className="text-xs font-bold text-neutral-900">
+                          Rp {Number(item.totalBayar).toLocaleString("id-ID")}
+                        </span>
+                        <Lencana
+                          kelas={
+                            item.statusReservasi === "DIKONFIRMASI"
+                              ? WARNA_HIJAU
+                              : item.statusReservasi === "SELESAI"
+                                ? WARNA_NETRAL
+                                : item.statusReservasi === "DIBATALKAN"
+                                  ? WARNA_MERAH
+                                  : WARNA_AMBER
+                          }
+                        >
+                          {item.statusReservasi}
+                        </Lencana>
+                        <Lencana
+                          kelas={
+                            item.statusPembayaran === "LUNAS"
+                              ? WARNA_HIJAU
+                              : WARNA_NETRAL
+                          }
+                        >
+                          {item.statusPembayaran}
+                        </Lencana>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      <span className="text-xs font-bold text-neutral-900">
-                        Rp {item.totalBayar.toLocaleString("id-ID")}
-                      </span>
-                      <Lencana
-                        kelas={
-                          item.statusReservasi === "DIKONFIRMASI"
-                            ? WARNA_HIJAU
-                            : item.statusReservasi === "SELESAI"
-                              ? WARNA_NETRAL
-                              : item.statusReservasi === "DIBATALKAN"
-                                ? WARNA_MERAH
-                                : WARNA_AMBER
-                        }
-                      >
-                        {item.statusReservasi}
-                      </Lencana>
-                      <Lencana
-                        kelas={
-                          item.statusPembayaran === "LUNAS"
-                            ? WARNA_HIJAU
-                            : WARNA_NETRAL
-                        }
-                      >
-                        {item.statusPembayaran}
-                      </Lencana>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1223,6 +1378,27 @@ export default function AdminDashboard() {
               </Field>
             </div>
 
+            <Field label="Zona Ruangan">
+              <select
+                value={mejaForm.ruangan}
+                onChange={(e) =>
+                  handleUbahRuanganMeja(
+                    e.target.value as
+                      | "INDOOR_NON_SMOKING"
+                      | "OUTDOOR_SMOKING"
+                      | "VIP_NON_SMOKING",
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="INDOOR_NON_SMOKING">Indoor (Non-Smoking)</option>
+                <option value="OUTDOOR_SMOKING">Outdoor (Smoking)</option>
+                <option value="VIP_NON_SMOKING">
+                  Private VIP Room (Non-Smoking)
+                </option>
+              </select>
+            </Field>
+
             <Field label="Lokasi Area">
               <input
                 type="text"
@@ -1231,7 +1407,19 @@ export default function AdminDashboard() {
                 onChange={(e) =>
                   setMejaForm({ ...mejaForm, lokasiArea: e.target.value })
                 }
-                placeholder="Indoor, Outdoor, Rooftop, VIP Room"
+                placeholder="Indoor Hall Utama, Outdoor Garden, Private VIP Room"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Keterangan View Meja (Opsional)">
+              <input
+                type="text"
+                value={mejaForm.viewMeja}
+                onChange={(e) =>
+                  setMejaForm({ ...mejaForm, viewMeja: e.target.value })
+                }
+                placeholder="Contoh: Private VIP Room (Eksklusif) / Dekat Jendela"
                 className={inputClass}
               />
             </Field>

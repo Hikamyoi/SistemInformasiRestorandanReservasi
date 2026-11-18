@@ -17,33 +17,44 @@ interface MenuItemDb {
   statusKetersediaan: boolean;
 }
 
-/* Ambil ID pengguna dari sesi login (cookie JWT "auth_token") */
-async function ambilUserId(): Promise<string | null> {
-  const sesi = await getCurrentUser();
-  if (!sesi?.userId) return null;
+/* Helper konversi string jam "13:30" ke Date ISO-8601 yang valid untuk kolom @db.Time Prisma */
+function parseJamToDate(jamStr: string): Date {
+  const parts = String(jamStr).split(":");
+  const jam = parseInt(parts[0] || "0", 10);
+  const menit = parseInt(parts[1] || "0", 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return new Date(`1970-01-01T${pad(jam)}:${pad(menit)}:00Z`);
+}
 
-  // Token berlaku 7 hari: pastikan akunnya masih ada di database
-  const user = await prisma.user.findUnique({
-    where: { id: sesi.userId },
-    select: { id: true },
-  });
-  return user?.id ?? null;
+/* Ambil data profil pengguna dari sesi login jika ada */
+async function ambilDataUser(): Promise<{
+  id: string;
+  nama: string;
+  noHp: string | null;
+} | null> {
+  try {
+    const sesi = await getCurrentUser();
+    if (!sesi?.userId) return null;
+
+    const user = await prisma.user.findUnique({
+      where: { id: sesi.userId },
+      select: { id: true, nama: true, noHp: true },
+    });
+    return user ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function buatReservasi(
   input: unknown,
 ): Promise<ReservasiActionResult> {
   try {
-    // --- Autentikasi: userId TIDAK pernah diambil dari form ---
-    const userId = await ambilUserId();
-    if (!userId) {
-      return {
-        success: false,
-        message: "Silakan masuk terlebih dahulu untuk membuat reservasi.",
-      };
-    }
+    // 1. Ambil info akun jika sedang login (jika tamu / guest, nilainya null)
+    const user = await ambilDataUser();
+    const userId = user?.id ?? null;
 
-    // --- Validasi ulang di server, kapasitas meja diambil dari database ---
+    // 2. Validasi kapasitas meja dari database
     const daftarMeja = await prisma.meja.findMany({
       select: { id: true, kapasitas: true, status: true },
     });
@@ -61,7 +72,7 @@ export async function buatReservasi(
     }
     const data = hasil.data;
 
-    // --- Cek meja ---
+    // 3. Cek ketersediaan meja
     const meja = daftarMeja.find((m) => m.id === data.mejaId);
     if (!meja)
       return { success: false, message: "Meja yang dipilih tidak ditemukan." };
@@ -72,7 +83,7 @@ export async function buatReservasi(
       };
     }
 
-    // --- Ambil harga menu dari DATABASE (bukan dari klien) & hitung total ---
+    // 4. Ambil harga menu dari DATABASE & kalkulasi total bayar
     const menuIds = data.pesanan.map((p) => p.menuId);
     const daftarMenu: MenuItemDb[] = menuIds.length
       ? await prisma.menu.findMany({
@@ -102,12 +113,12 @@ export async function buatReservasi(
       if (!menu)
         return {
           success: false,
-          message: "Ada menu yang tidak ditemukan. Muat ulang halaman.",
+          message: "Ada menu yang tidak ditemukan. Silakan muat ulang halaman.",
         };
       if (!menu.statusKetersediaan) {
         return {
           success: false,
-          message: `Menu "${menu.namaMenu}" sedang habis. Hapus dari pesanan.`,
+          message: `Menu "${menu.namaMenu}" sedang habis. Silakan hapus dari pesanan.`,
         };
       }
 
@@ -123,44 +134,67 @@ export async function buatReservasi(
       });
     }
 
-    // --- Simpan dalam satu transaksi + cek bentrok jadwal ---
-    // Kolom @db.Date: pakai tengah malam UTC agar tanggal tidak bergeser zona waktu
+    // 5. Konversi Tanggal & Jam ke format Date yang valid
     const tanggal = new Date(`${data.tanggal}T00:00:00.000Z`);
+    const jamMulaiDate = parseJamToDate(data.jamMulai);
+    const jamSelesaiDate = parseJamToDate(data.jamSelesai);
 
+    // Generate kode booking unik (contoh: RSV-A8K2J9)
+    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const kodeBooking = `RSV-${randomCode}`;
+
+    // Nama & No HP pemesan
+    const inputObj = input as any;
+    const namaPemesan =
+      inputObj?.namaPemesan?.trim() || user?.nama || "Tamu Pelanggan";
+    const noHp = inputObj?.noHp?.trim() || user?.noHp || "-";
+
+    // 6. Transaksi Database: Cek Bentrok + Simpan Data Reservasi
     const hasilTransaksi = await prisma.$transaction(
       async (tx) => {
-        // Bentrok bila: mulaiBaru < selesaiLama DAN selesaiBaru > mulaiLama
+        // Cek bentrok jadwal menggunakan objek Date
         const bentrok = await tx.reservasi.findFirst({
           where: {
             mejaId: data.mejaId,
             tanggal,
             statusReservasi: { in: ["MENUNGGU_KONFIRMASI", "DIKONFIRMASI"] },
-            jamMulai: { lt: data.jamSelesai },
-            jamSelesai: { gt: data.jamMulai },
+            jamMulai: { lt: jamSelesaiDate },
+            jamSelesai: { gt: jamMulaiDate },
           },
           select: { id: true },
         });
+
         if (bentrok) return { bentrok: true as const };
 
         const reservasi = await tx.reservasi.create({
           data: {
+            kodeBooking,
             userId,
+            namaPemesan,
+            noHp,
             mejaId: data.mejaId,
             tanggal,
-            jamMulai: data.jamMulai,
-            jamSelesai: data.jamSelesai,
+            jamMulai: jamMulaiDate,
+            jamSelesai: jamSelesaiDate,
             jumlahTamu: data.jumlahTamu,
-            totalBayar,
+            totalBayar: Math.round(totalBayar),
+            statusReservasi: "DIKONFIRMASI",
+            statusPembayaran: "LUNAS",
             catatan: data.catatan?.trim() || null,
             detailMenu: { create: detailMenu },
           },
-          select: { id: true },
+          select: { id: true, kodeBooking: true },
         });
-        return { bentrok: false as const, id: reservasi.id };
+
+        return {
+          bentrok: false as const,
+          id: reservasi.id,
+          kodeBooking: reservasi.kodeBooking,
+        };
       },
       {
-        maxWait: 10000, // 10 detik batas antrean koneksi pooler
-        timeout: 20000, // 20 detik batas eksekusi transaksi
+        maxWait: 10000,
+        timeout: 20000,
       },
     );
 
@@ -172,17 +206,20 @@ export async function buatReservasi(
       };
     }
 
-    after(() =>
-      kirimNotifikasi(userId, {
-        title: "Reservasi diterima",
-        body: `Reservasi ${data.tanggal} pukul ${data.jamMulai} menunggu konfirmasi restoran.`,
-        tag: `reservasi-${hasilTransaksi.id}`,
-      }),
-    );
+    // Kirim Web Push Notification jika user sedang login
+    if (userId) {
+      after(() =>
+        kirimNotifikasi(userId, {
+          title: "Reservasi Diterima",
+          body: `Reservasi Anda pada ${data.tanggal} pukul ${data.jamMulai} (${hasilTransaksi.kodeBooking}) telah berhasil dikonfirmasi.`,
+          tag: `reservasi-${hasilTransaksi.id}`,
+        }),
+      );
+    }
 
     return {
       success: true,
-      message: "Reservasi berhasil dikirim. Menunggu konfirmasi dari restoran.",
+      message: `Reservasi berhasil! Kode Booking Anda: ${hasilTransaksi.kodeBooking}`,
     };
   } catch (error: any) {
     if (error?.code === "P2034") {
